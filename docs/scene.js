@@ -283,7 +283,17 @@ export class Scene {
           this.particles.push({ kind: 'sand', x: sv.tx, y: sv.ty, vx: rand(35, 95), vy: rand(-150, -95), life: 0, max: 0.8 });
         }
       }
-      if (act.kind === 'pond' && Math.sin(k * 5) > 0.9 && Math.random() < dt * 20) this.burst(this.x, this.y - 8, 'drop', 2);
+      if (act.kind === 'pond' && k > 0.3 && Math.random() < dt * 26) {
+        const d = Math.random() < 0.5 ? -1 : 1, sc = this._stageScale(this.pet);
+        this.particles.push({ kind: 'drop', x: this.x + d * 52 * sc, y: SPOTS.pond.y + 14 - 44 * sc, vx: d * rand(25, 95), vy: rand(-190, -100), life: 0, max: 0.75 });
+      }
+      if (act.kind === 'trampoline') {
+        const tr = this._tramp(k);
+        if (tr.p > 0.5 && this._tPeak !== tr.idx) {
+          this._tPeak = tr.idx;
+          if (tr.h > 40) this.burst(this.x, this.y - tr.h - 95 * this._stageScale(this.pet), 'spark', 3);
+        }
+      }
       return;
     }
     this.idleTimer -= dt;
@@ -455,6 +465,23 @@ export class Scene {
     c.textAlign = 'start';
   }
 
+  /** Fisika lompatan trampolin: parabola, alas melesak saat mendarat, salto tiap lompatan ketiga. */
+  _tramp(k) {
+    const act = this.activity;
+    const T = 0.95;
+    const amp = Math.min(1, k / 1.4, Math.max(0, (act.until - this.t) / 0.7)); // makin tinggi lalu pelan di akhir
+    const idx = Math.floor(k / T), p = (k % T) / T;
+    const h = 4 * p * (1 - p) * 135 * amp * (this.reduced ? 0.45 : 1);
+    const near = Math.min(p, 1 - p);
+    const press = Math.max(0, 1 - near / 0.16) * (0.35 + 0.65 * amp); // 0..1 saat menyentuh alas
+    const stretch = 1 + 0.08 * Math.sin(Math.PI * p) * amp;
+    return {
+      idx, p, h, up: Math.min(1, h / 100), sag: press * 11,
+      sqx: (1 / stretch) * (1 + 0.16 * press), sqy: stretch * (1 - 0.2 * press),
+      flip: idx % 3 === 2 && amp > 0.95 && !this.reduced ? p * Math.PI * 2 : 0,
+    };
+  }
+
   _swingAngle() {
     const act = this.activity;
     if (act?.kind !== 'swing' || !act.arrived) return Math.sin(this.t * 1.1) * 0.08;
@@ -594,11 +621,44 @@ export class Scene {
     c.beginPath(); c.ellipse(s.x + 40, s.y - 4, 13, 5, 0, 0, 7); c.fill();
     c.fillStyle = '#ff8fab';
     c.beginPath(); c.arc(s.x + 42, s.y - 8, 4, 0, 7); c.fill();
+    c.font = '26px system-ui, sans-serif'; c.textAlign = 'center';
+    c.fillText('🦆', s.x - 64, s.y - 2 + Math.sin(this.t * 1.6) * 2);
+    c.textAlign = 'start';
+  }
+
+  /** Lapisan air depan: menutupi bagian bawah badan sehingga peliharaan tampak berendam. */
+  _pondFront(c) {
+    const act = this.activity;
+    const wl = this._pondWL;
+    if (act?.kind !== 'pond' || !act.arrived || !wl) return;
+    const s = SPOTS.pond, k = this.t - act.start;
+    c.save();
+    c.beginPath(); c.ellipse(s.x, s.y, 87, 27, 0, 0, 7); c.clip();
+    c.globalAlpha = wl.blend;
+    const g = c.createLinearGradient(0, wl.y, 0, s.y + 28);
+    g.addColorStop(0, 'rgba(150,225,255,.66)'); g.addColorStop(1, 'rgba(58,160,216,.86)');
+    c.fillStyle = g;
+    c.fillRect(wl.x - 130, wl.y, 260, 80);
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2.2;
+    c.beginPath();
+    for (let i = -62; i <= 62; i += 4) {
+      const y = wl.y + Math.sin(this.t * 6 + i * 0.25) * 1.6;
+      if (i === -62) c.moveTo(wl.x + i, y); else c.lineTo(wl.x + i, y);
+    }
+    c.stroke();
+    c.lineWidth = 1.8;
+    for (let i = 0; i < 3; i++) {
+      const r = (k * 0.9 + i / 3) % 1;
+      c.globalAlpha = wl.blend * (1 - r) * 0.7;
+      c.strokeStyle = 'rgba(255,255,255,.95)';
+      c.beginPath(); c.ellipse(wl.x, wl.y + 5, 28 + r * 48, 6 + r * 10, 0, 0, 7); c.stroke();
+    }
+    c.restore();
   }
 
   _draw_trampoline(c, s) {
     const act = this.activity?.kind === 'trampoline' && this.activity.arrived;
-    const sag = act ? Math.max(0, Math.sin((this.t - this.activity.start) * 7)) * 4 : 0;
+    const sag = act ? this._tramp(this.t - this.activity.start).sag : 0;
     this._shadow(c, s.x, s.y + 4, 76);
     c.strokeStyle = '#555c7a'; c.lineWidth = 5; c.lineCap = 'round';
     for (const dx of [-58, -40, 40, 58]) { c.beginPath(); c.moveTo(s.x + dx, s.y - 12); c.lineTo(s.x + dx * 1.05, s.y + 6); c.stroke(); }
@@ -621,7 +681,8 @@ export class Scene {
   _pet(c) {
     const p = this.pet;
     const act = this.activity?.arrived ? this.activity : null;
-    let lift = 0, rot = 0, px = this.x, py = this.y, sit = false;
+    let lift = 0, rot = 0, px = this.x, py = this.y, sit = false, sqx = 1, sqy = 1, flip = 0, shadowY = this.y + 2;
+    const kk = act ? this.t - act.start : 0;
     if (this.walking) lift = Math.abs(Math.sin(this.t * 11)) * 9;
     if (act) {
       const k = this.t - act.start;
@@ -636,8 +697,12 @@ export class Scene {
         rot = a * blend;
         sit = true;
       } else if (act.kind === 'trampoline') {
-        lift = Math.abs(Math.sin(k * 3.5)) * 120;
-        if (this.reduced) lift *= 0.4;
+        const tr = this._tramp(k), sp = SPOTS.trampoline;
+        px = lerp(this.x, sp.x, blend);
+        py = lerp(this.y, sp.y - 18 + tr.sag, blend);
+        lift = tr.h * blend;
+        sqx = lerp(1, tr.sqx, blend); sqy = lerp(1, tr.sqy, blend); flip = tr.flip * blend;
+        shadowY = sp.y - 14;
       } else if (act.kind === 'ball') lift = Math.abs(Math.sin(k * 6)) * 14;
       else if (act.kind === 'sandbox') {
         // berdiri di dalam pasir, badan bergoyang saat menyekop
@@ -645,17 +710,28 @@ export class Scene {
         rot = Math.sin(k * 5 + 1.2) * 0.07 * blend;
         sit = true;
       }
-      else if (act.kind === 'pond') { py -= 6; lift = Math.abs(Math.sin(k * 5)) * 18; }
+      else if (act.kind === 'pond') {
+        // berendam di kolam: air menutupi bagian bawah badan, tangan memercik
+        const sp = SPOTS.pond, sc = this._stageScale(p);
+        py = lerp(this.y, sp.y + 14, blend);
+        lift = Math.abs(Math.sin(k * 4.5)) * 7 * blend;
+        rot = Math.sin(k * 4) * 0.07 * blend;
+        sit = true;
+        this._pondWL = { x: px, y: py - 18 * sc, blend };
+      }
     }
     if (this.eating && this.t - this.eating.start > 0.5) { lift += Math.abs(Math.sin(this.t * 9)) * 4; rot = Math.sin(this.t * 9) * 0.05; }
     if (this.bathing) { rot = Math.sin(this.t * 7) * 0.09; px += Math.sin(this.t * 7) * 3; }
-    if (!sit || act?.kind === 'swing') this._shadow(c, px, this.y + 2, 38 * this._stageScale(p) * (1 - Math.min(lift, 140) / 260));
+    if (!sit || act?.kind === 'swing') this._shadow(c, px, shadowY, 38 * this._stageScale(p) * (1 - Math.min(lift, 140) / 260));
     c.save();
     c.translate(px, py - lift);
     c.rotate(rot);
+    if (flip) { const cy = -40 * this._stageScale(p); c.translate(0, cy); c.rotate(flip); c.translate(0, -cy); }
+    c.scale(sqx, sqy);
     if (p.stage === 'egg') this._egg(c, p);
-    else this._creature(c, p);
+    else { this._creature(c, p); if (act) this._playArms(c, p, act, kk); }
     c.restore();
+    this._pondFront(c);
     if (act?.kind === 'swing') this._swingHands(c);
     if (act?.kind === 'sandbox') this._shovelDraw(c, this.t - act.start);
     this._food(c, px, py);
@@ -685,6 +761,25 @@ export class Scene {
       c.font = '20px system-ui, sans-serif'; c.textAlign = 'center';
       c.fillText(NEED_ICON[mood], px + 36, by + 7);
       c.textAlign = 'start';
+    }
+  }
+
+  /** Lengan: terangkat saat melompat di trampolin, memercik air di kolam. */
+  _playArms(c, p, act, k) {
+    const sc = this._stageScale(p);
+    let hands = null;
+    if (act.kind === 'trampoline') {
+      const up = this._tramp(k).up;
+      hands = [-1, 1].map((d) => [d * (44 - up * 14) * sc, (-30 - up * 58) * sc]);
+    } else if (act.kind === 'pond') {
+      hands = [-1, 1].map((d, i) => [d * 50 * sc, (-34 - Math.max(0, Math.sin(k * 8 + i * Math.PI)) * 28) * sc]);
+    }
+    if (!hands) return;
+    const col = p.sick ? '#9dc070' : PALETTES[p.species].body;
+    c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 6 * sc + 1; c.lineCap = 'round';
+    for (const [x, y] of hands) {
+      c.beginPath(); c.moveTo(Math.sign(x) * 38 * sc, -36 * sc); c.lineTo(x, y); c.stroke();
+      c.beginPath(); c.arc(x, y, 7 * sc + 1.5, 0, 7); c.fill();
     }
   }
 
