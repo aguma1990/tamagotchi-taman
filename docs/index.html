@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tamagotchi Taman</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐣%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#0d1024">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tamagotchi">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">🐣</span> Tamagotchi <b>Taman</b></div>
+      <div class="chips">
+        <span class="chip" title="Jam di taman" id="clock">🕒 <b>--:--</b></span>
+        <span class="chip" title="Koin" id="coins">🪙 <b>0</b></span>
+        <button class="chip btn" id="installBtn" type="button" hidden>📲 Pasang</button>
+        <button class="chip btn" id="soundBtn" type="button" aria-label="Suara" title="Suara aktif/mati">🔊</button>
+        <span class="chip" id="saved" title="Status penyimpanan"><i class="dot"></i> Tersimpan</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="stage" aria-label="Taman bermain">
+        <canvas id="scene" role="img" aria-label="Taman bermain tempat peliharaanmu berjalan dan bermain"></canvas>
+        <div id="tooltip" class="tooltip" hidden></div>
+        <div id="toasts" class="toasts" aria-live="polite"></div>
+        <p class="hint">Ketuk wahana untuk mengajak bermain · ketuk peliharaan untuk memeluk</p>
+      </section>
+
+      <aside class="side">
+        <section class="card pet-card">
+          <div class="pet-head">
+            <div>
+              <h1 id="petName">—</h1>
+              <p class="sub" id="petSub">—</p>
+            </div>
+            <div class="level" title="Level"><span>Lv</span><b id="level">1</b></div>
+          </div>
+          <div class="xp" role="progressbar" aria-label="Pengalaman" id="xpBar"><i id="xpFill"></i></div>
+          <p class="xp-label" id="xpLabel"></p>
+        </section>
+
+        <section class="card stats" aria-label="Status">
+          <div class="stat" data-k="hunger"><span class="ico">🍖</span><span class="lbl">Kenyang</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+          <div class="stat" data-k="happiness"><span class="ico">😊</span><span class="lbl">Senang</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+          <div class="stat" data-k="energy"><span class="ico">⚡</span><span class="lbl">Energi</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+          <div class="stat" data-k="hygiene"><span class="ico">🫧</span><span class="lbl">Bersih</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+          <div class="stat" data-k="health"><span class="ico">❤️</span><span class="lbl">Sehat</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+        </section>
+
+        <section class="card actions" aria-label="Aksi">
+          <div class="food-pop" id="foodPop" hidden></div>
+          <button class="act" data-act="feed"><span>🍽️</span>Makan</button>
+          <button class="act" data-act="clean"><span>🛁</span>Mandi</button>
+          <button class="act" data-act="sleep" id="sleepBtn"><span>😴</span>Tidur</button>
+          <button class="act" data-act="medicine"><span>💊</span>Obat</button>
+          <button class="act" data-act="cuddle"><span>🤗</span>Peluk</button>
+          <button class="act accent" data-act="minigame"><span>⭐</span>Tangkap Bintang</button>
+        </section>
+
+      </aside>
+
+      <section class="card log">
+          <div class="tabs" role="tablist">
+            <button role="tab" aria-selected="true" data-tab="quests">Misi <i class="badge" id="questBadge" hidden></i></button>
+            <button role="tab" aria-selected="false" data-tab="shop">Toko</button>
+            <button role="tab" aria-selected="false" data-tab="chat">Obrolan</button>
+            <button role="tab" aria-selected="false" data-tab="history">Riwayat</button>
+            <button role="tab" aria-selected="false" data-tab="stats">Statistik</button>
+          </div>
+          <div id="tab-quests" class="tab-body">
+            <div id="daily" class="daily"></div>
+            <ul id="quests" class="quests"></ul>
+            <details class="howto" id="howto" open><summary>💡 Cara dapat koin</summary><ul id="howtoList"></ul></details>
+            <h3 class="sec">Prestasi <span id="achCount"></span></h3>
+            <div id="achievements" class="ach"></div>
+          </div>
+          <div id="tab-chat" class="tab-body chat-body" hidden>
+            <div id="chatLog" class="chat-log" aria-live="polite" aria-label="Riwayat obrolan"></div>
+            <div class="qchips" id="chatChips"></div>
+            <form id="chatForm" class="chat-form" autocomplete="off">
+              <input id="chatInput" maxlength="160" placeholder="Ngobrol…" aria-label="Pesan untuk peliharaan">
+              <button class="claim" type="submit">Kirim</button>
+            </form>
+          </div>
+          <div id="tab-shop" class="tab-body" hidden><div id="shop" class="shop"></div></div>
+          <div id="tab-history" class="tab-body" hidden><ul id="history" class="history"></ul></div>
+          <div id="tab-stats" class="tab-body" hidden>
+            <canvas id="chart" height="170"></canvas>
+            <div class="legend" id="legend"></div>
+            <dl class="about" id="about"></dl>
+            <div class="backup" id="backup" hidden>
+              <h3 class="sec">Cadangan data</h3>
+              <p class="note">Peliharaan tersimpan di perangkat ini saja. Unduh cadangan secara berkala, atau untuk memindahkan ke HP/PC lain.</p>
+              <div class="backup-row">
+                <button class="claim" id="btnExport" type="button">💾 Ekspor cadangan</button>
+                <label class="claim ghostbtn">📥 Impor<input type="file" id="fileImport" accept="application/json,.json" hidden></label>
+              </div>
+              <p class="note">iPhone: buka di Safari → Bagikan → <b>Tambah ke Layar Utama</b>. Android: menu ⋮ → <b>Pasang aplikasi</b>.</p>
+            </div>
+          </div>
+        </section>
+    </main>
+  </div>
+
+  <!-- Onboarding -->
+  <div class="modal" id="welcome" hidden>
+    <form class="dialog" id="createForm" autocomplete="off">
+      <h2>Telur misterius ditemukan! 🥚</h2>
+      <p class="sub">Pilih jenis dan beri nama. Peliharaanmu tetap tumbuh dan tersimpan walau perangkat dimatikan.</p>
+      <div class="species" role="radiogroup" aria-label="Jenis">
+        <label><input type="radio" name="species" value="mochi" checked><span class="sp sp-mochi">🐱</span>Mochi</label>
+        <label><input type="radio" name="species" value="bubu"><span class="sp sp-bubu">🐻</span>Bubu</label>
+        <label><input type="radio" name="species" value="leafy"><span class="sp sp-leafy">🌱</span>Leafy</label>
+      </div>
+      <label class="field">Nama
+        <input name="name" maxlength="16" required placeholder="mis. Momo">
+      </label>
+      <p class="error" id="createError" role="alert"></p>
+      <button class="primary" type="submit">Mulai merawat</button>
+    </form>
+  </div>
+
+  <!-- Selamat datang kembali -->
+  <div class="modal" id="away" hidden>
+    <div class="dialog">
+      <h2 id="awayTitle">Selamat datang kembali!</h2>
+      <p class="sub" id="awaySub"></p>
+      <ul class="history compact" id="awayList"></ul>
+      <button class="primary" id="awayClose">Lanjut main</button>
+    </div>
+  </div>
+
+  <!-- Minigame -->
+  <div class="modal" id="game" hidden>
+    <div class="dialog game-dialog">
+      <h2>Tangkap Bintang ⭐</h2>
+      <p class="sub">Ketuk bintang yang jatuh. 🌟 emas bernilai 3!</p>
+      <canvas id="gameCanvas"></canvas>
+      <button class="ghost" id="gameCancel">Batal</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

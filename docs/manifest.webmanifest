@@ -1,0 +1,17 @@
+{
+  "name": "Tamagotchi Taman",
+  "short_name": "Tamagotchi",
+  "description": "Rawat hewan peliharaan virtual, main di taman, kumpulkan koin dan aksesori.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1024",
+  "theme_color": "#0d1024",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
