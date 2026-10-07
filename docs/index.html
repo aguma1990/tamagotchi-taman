@@ -20,9 +20,12 @@
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true">🐣</span> Tamagotchi <b>Taman</b></div>
       <div class="chips">
+        <span class="chip" title="Cuaca di taman" id="weather" hidden>☀️ <b>Cerah</b></span>
+        <button class="chip btn" id="eventChip" type="button" title="Hari spesial — ketuk untuk melihat hadiah" hidden>🎉 <b></b></button>
         <span class="chip" title="Jam di taman" id="clock">🕒 <b>--:--</b></span>
         <span class="chip" title="Koin" id="coins">🪙 <b>0</b></span>
         <button class="chip btn" id="installBtn" type="button" hidden>📲 Pasang</button>
+        <button class="chip btn" id="musicBtn" type="button" aria-label="Musik latar" title="Musik latar">🎵</button>
         <button class="chip btn" id="soundBtn" type="button" aria-label="Suara" title="Suara aktif/mati">🔊</button>
         <span class="chip" id="saved" title="Status penyimpanan"><i class="dot"></i> Tersimpan</span>
       </div>
@@ -53,6 +56,7 @@
           <div class="stat" data-k="hunger"><span class="ico">🍖</span><span class="lbl">Kenyang</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
           <div class="stat" data-k="happiness"><span class="ico">😊</span><span class="lbl">Senang</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
           <div class="stat" data-k="energy"><span class="ico">⚡</span><span class="lbl">Energi</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
+          <div class="stat" data-k="thirst"><span class="ico">💧</span><span class="lbl">Haus</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
           <div class="stat" data-k="hygiene"><span class="ico">🫧</span><span class="lbl">Bersih</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
           <div class="stat" data-k="health"><span class="ico">❤️</span><span class="lbl">Sehat</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div><b></b></div>
         </section>
@@ -64,51 +68,84 @@
           <button class="act" data-act="sleep" id="sleepBtn"><span>😴</span>Tidur</button>
           <button class="act" data-act="medicine"><span>💊</span>Obat</button>
           <button class="act" data-act="cuddle"><span>🤗</span>Peluk</button>
-          <button class="act accent" data-act="minigame"><span>⭐</span>Tangkap Bintang</button>
+          <button class="act accent" data-act="minigame"><span>🎮</span>Mini-game</button>
         </section>
 
       </aside>
 
       <section class="card log">
-          <div class="tabs" role="tablist">
-            <button role="tab" aria-selected="true" data-tab="quests">Misi <i class="badge" id="questBadge" hidden></i></button>
-            <button role="tab" aria-selected="false" data-tab="shop">Toko</button>
-            <button role="tab" aria-selected="false" data-tab="chat">Obrolan</button>
-            <button role="tab" aria-selected="false" data-tab="history">Riwayat</button>
-            <button role="tab" aria-selected="false" data-tab="stats">Statistik</button>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="quests">Misi <i class="badge" id="questBadge" hidden></i></button>
+          <button role="tab" aria-selected="false" data-tab="shop">Toko</button>
+          <button role="tab" aria-selected="false" data-tab="train">Latihan</button>
+          <button role="tab" aria-selected="false" data-tab="collection">Koleksi <i class="badge" id="collBadge" hidden></i></button>
+          <button role="tab" aria-selected="false" data-tab="chat">Obrolan</button>
+          <button role="tab" aria-selected="false" data-tab="history">Riwayat</button>
+          <button role="tab" aria-selected="false" data-tab="stats">Statistik</button>
+        </div>
+
+        <div id="tab-quests" class="tab-body">
+          <div id="eventCard" class="daily event" hidden></div>
+          <div id="daily" class="daily"></div>
+          <div id="lucky" class="daily lucky"></div>
+          <ul id="quests" class="quests"></ul>
+          <div id="weekly" class="weekly"></div>
+          <details class="howto" id="howto" open><summary>💡 Cara dapat koin</summary><ul id="howtoList"></ul></details>
+          <h3 class="sec">Prestasi <span id="achCount"></span></h3>
+          <div id="achievements" class="ach"></div>
+        </div>
+
+        <div id="tab-shop" class="tab-body" hidden>
+          <div class="seg" id="shopSeg" role="tablist">
+            <button type="button" data-shop="acc" aria-selected="true">🎩 Aksesori</button>
+            <button type="button" data-shop="decor" aria-selected="false">🌳 Dekorasi</button>
+            <button type="button" data-shop="theme" aria-selected="false">🎨 Tema</button>
           </div>
-          <div id="tab-quests" class="tab-body">
-            <div id="daily" class="daily"></div>
-            <ul id="quests" class="quests"></ul>
-            <details class="howto" id="howto" open><summary>💡 Cara dapat koin</summary><ul id="howtoList"></ul></details>
-            <h3 class="sec">Prestasi <span id="achCount"></span></h3>
-            <div id="achievements" class="ach"></div>
-          </div>
-          <div id="tab-chat" class="tab-body chat-body" hidden>
-            <div id="chatLog" class="chat-log" aria-live="polite" aria-label="Riwayat obrolan"></div>
-            <div class="qchips" id="chatChips"></div>
-            <form id="chatForm" class="chat-form" autocomplete="off">
-              <input id="chatInput" maxlength="160" placeholder="Ngobrol…" aria-label="Pesan untuk peliharaan">
-              <button class="claim" type="submit">Kirim</button>
-            </form>
-          </div>
-          <div id="tab-shop" class="tab-body" hidden><div id="shop" class="shop"></div></div>
-          <div id="tab-history" class="tab-body" hidden><ul id="history" class="history"></ul></div>
-          <div id="tab-stats" class="tab-body" hidden>
-            <canvas id="chart" height="170"></canvas>
-            <div class="legend" id="legend"></div>
-            <dl class="about" id="about"></dl>
-            <div class="backup" id="backup" hidden>
-              <h3 class="sec">Cadangan data</h3>
-              <p class="note">Peliharaan tersimpan di perangkat ini saja. Unduh cadangan secara berkala, atau untuk memindahkan ke HP/PC lain.</p>
-              <div class="backup-row">
-                <button class="claim" id="btnExport" type="button">💾 Ekspor cadangan</button>
-                <label class="claim ghostbtn">📥 Impor<input type="file" id="fileImport" accept="application/json,.json" hidden></label>
-              </div>
-              <p class="note">iPhone: buka di Safari → Bagikan → <b>Tambah ke Layar Utama</b>. Android: menu ⋮ → <b>Pasang aplikasi</b>.</p>
+          <div id="shop" class="shop"></div>
+        </div>
+
+        <div id="tab-train" class="tab-body" hidden>
+          <div id="trainInfo" class="traitcard"></div>
+          <div id="skills" class="skills"></div>
+          <h3 class="sec">Rekor mini-game</h3>
+          <div id="records" class="records"></div>
+        </div>
+
+        <div id="tab-collection" class="tab-body" hidden>
+          <h3 class="sec first">Album stiker <span id="albumCount"></span></h3>
+          <div id="albumMilestones" class="milestones"></div>
+          <div id="album" class="album"></div>
+          <h3 class="sec">Galeri keluarga <span id="familyCount"></span></h3>
+          <div id="family" class="family"></div>
+          <div id="legacy" class="legacy"></div>
+        </div>
+
+        <div id="tab-chat" class="tab-body chat-body" hidden>
+          <div id="chatLog" class="chat-log" aria-live="polite" aria-label="Riwayat obrolan"></div>
+          <div class="qchips" id="chatChips"></div>
+          <form id="chatForm" class="chat-form" autocomplete="off">
+            <input id="chatInput" maxlength="160" placeholder="Ngobrol…" aria-label="Pesan untuk peliharaan">
+            <button class="claim" type="submit">Kirim</button>
+          </form>
+        </div>
+
+        <div id="tab-history" class="tab-body" hidden><ul id="history" class="history"></ul></div>
+
+        <div id="tab-stats" class="tab-body" hidden>
+          <canvas id="chart" height="170"></canvas>
+          <div class="legend" id="legend"></div>
+          <dl class="about" id="about"></dl>
+          <div class="backup" id="backup" hidden>
+            <h3 class="sec">Cadangan data</h3>
+            <p class="note">Peliharaan tersimpan di perangkat ini saja. Unduh cadangan secara berkala, atau untuk memindahkan ke HP/PC lain.</p>
+            <div class="backup-row">
+              <button class="claim" id="btnExport" type="button">💾 Ekspor cadangan</button>
+              <label class="claim ghostbtn">📥 Impor<input type="file" id="fileImport" accept="application/json,.json" hidden></label>
             </div>
+            <p class="note">iPhone: buka di Safari → Bagikan → <b>Tambah ke Layar Utama</b>. Android: menu ⋮ → <b>Pasang aplikasi</b>.</p>
           </div>
-        </section>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -121,6 +158,8 @@
         <label><input type="radio" name="species" value="mochi" checked><span class="sp sp-mochi">🐱</span>Mochi</label>
         <label><input type="radio" name="species" value="bubu"><span class="sp sp-bubu">🐻</span>Bubu</label>
         <label><input type="radio" name="species" value="leafy"><span class="sp sp-leafy">🌱</span>Leafy</label>
+        <label><input type="radio" name="species" value="babi"><span class="sp sp-babi">🐷</span>Babi</label>
+        <label><input type="radio" name="species" value="trenggiling"><span class="sp sp-trenggiling">🌰</span>Trenggiling</label>
       </div>
       <label class="field">Nama
         <input name="name" maxlength="16" required placeholder="mis. Momo">
@@ -140,14 +179,39 @@
     </div>
   </div>
 
-  <!-- Minigame -->
+  <!-- Pilih mini-game -->
+  <div class="modal" id="picker" hidden>
+    <div class="dialog">
+      <h2>Pilih mini-game 🎮</h2>
+      <p class="sub">Semua memberi koin & XP. Jeda 2 menit di antara permainan. Pecahkan rekor untuk bonus!</p>
+      <div id="pickerList" class="picker"></div>
+      <button class="ghost" id="pickerCancel" type="button">Tutup</button>
+    </div>
+  </div>
+
+  <!-- Mini-game -->
   <div class="modal" id="game" hidden>
     <div class="dialog game-dialog">
-      <h2>Tangkap Bintang ⭐</h2>
-      <p class="sub">Ketuk bintang yang jatuh. 🌟 emas bernilai 3!</p>
+      <h2 id="gameTitle">Mini-game</h2>
+      <p class="sub" id="gameDesc"></p>
       <canvas id="gameCanvas"></canvas>
       <button class="ghost" id="gameCancel">Batal</button>
     </div>
+  </div>
+
+  <!-- Pensiun & telur baru -->
+  <div class="modal" id="retire" hidden>
+    <form class="dialog" id="retireForm" autocomplete="off">
+      <h2>Pensiun & telur baru 🥚</h2>
+      <p class="sub" id="retireSub"></p>
+      <div class="species" id="retireSpecies" role="radiogroup" aria-label="Jenis telur baru"></div>
+      <label class="field">Nama telur baru
+        <input name="name" maxlength="16" required placeholder="mis. Momo Junior">
+      </label>
+      <p class="error" id="retireError" role="alert"></p>
+      <button class="primary" type="submit">Pensiunkan & mulai generasi baru</button>
+      <button class="ghost" id="retireCancel" type="button">Batal</button>
+    </form>
   </div>
 
   <script type="module" src="app.js"></script>

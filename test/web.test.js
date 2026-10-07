@@ -119,3 +119,29 @@ test('web: core.js memberi logika yang sama dengan versi PC', async () => {
   const mk = (e) => { const s = e.createPet({ name: 'A', species: 'mochi' }, T0, 'id', 7).state; e.advance(s, T0 + 5 * MIN); return e.perform(s, T0 + 5 * MIN, { type: 'chat', text: 'apa kabar' }).reply; };
   assert.equal(mk(web), mk(pc));
 });
+
+test('web: uji acak — banyak aksi sampah, ekspor/impor, buka-ulang tidak merusak state', async () => {
+  let seed = 12345;
+  const r = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const types = ['feed', 'clean', 'sleep', 'wake', 'cuddle', 'play', 'minigame', 'chat', 'daily', 'lucky', 'weekly', 'event', 'collect', 'greet', 'train', 'buy', 'decorBuy', 'decorPlace', 'themeBuy', 'themeSet', 'retire', 'quest', 'bogus'];
+  const junk = [null, undefined, 5, '__proto__', {}, [], 'x'.repeat(300), 'air', 'swing', 'lari', 'sakura'];
+  for (let run = 0; run < 8; run++) {
+    let g = await fresh(fakeStorage(), T0 + run * 1000);
+    await g.api('/api/create', { name: `W${run}`, species: ['mochi', 'bubu', 'leafy', 'babi', 'trenggiling'][run % 5] });
+    for (let i = 0; i < 120; i++) {
+      g.advance(Math.floor(r() * (r() < 0.2 ? 5 * HOUR : 2 * MIN)));
+      const a = r() < 0.1 ? junk[Math.floor(r() * junk.length)] : { type: types[Math.floor(r() * types.length)], food: junk[Math.floor(r() * junk.length)], item: junk[Math.floor(r() * junk.length)], skill: 'lari', theme: 'sakura', game: 'memory', score: Math.floor(r() * 80), text: 'halo', name: 'Z', species: 'bubu', id: 'feed' };
+      try { await g.api('/api/action', a); } catch (e) { assert.equal(typeof e.message, 'string'); }
+      if (i % 40 === 39) {
+        const snap = await g.api('/api/state');
+        for (const v of Object.values(snap.pet.stats)) assert.ok(Number.isFinite(v) && v >= 0 && v <= 100);
+        assert.ok(Number.isFinite(snap.pet.coins) && snap.pet.coins >= 0);
+        const backup = JSON.parse(JSON.stringify(await g.api('/api/export')));
+        const other = await fresh(fakeStorage(), g.at());
+        await other.api('/api/import', backup);
+        assert.equal((await other.api('/api/state')).pet.name, snap.pet.name);
+        g = { ...g, ...(await g.reopen()) }; // buka ulang dari penyimpanan yang sama, helper waktu tetap
+      }
+    }
+  }
+});

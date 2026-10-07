@@ -48,25 +48,8 @@ class Game {
   }
 
   snapshot() {
-    return {
-      created: !!this.state,
-      now: this.clock(),
-      pet: this.state,
-      streak: this.state ? engine.effectiveStreak(this.state, this.clock()) : 0,
-      config: {
-        foods: engine.FOODS,
-        playground: engine.PLAYGROUND,
-        species: engine.SPECIES,
-        medicineCost: engine.MEDICINE_COST,
-        stageStarts: engine.CONFIG.stageStarts,
-        cosmetics: engine.COSMETICS,
-        quests: engine.QUESTS,
-        questBonus: engine.QUEST_BONUS,
-        achievements: engine.ACHIEVEMENTS.map(({ test, ...a }) => a),
-        dayRealMinutes: engine.CONFIG.dayRealMinutes,
-        dayStartHour: engine.CONFIG.dayStartHour,
-      },
-    };
+    const now = this.clock();
+    return { created: !!this.state, now, pet: this.state, ...engine.viewExtras(this.state, now), config: engine.buildConfig() };
   }
 
   shutdown() {

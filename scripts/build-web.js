@@ -29,18 +29,19 @@ for (const f of fs.readdirSync(path.join(root, 'public'))) {
 }
 put('api.js', rd('web/local-api.js'));
 
-put('core.js', `// DIHASILKAN OTOMATIS oleh scripts/build-web.js dari src/engine.js & src/chat.js — jangan diedit.
-const __chat = (() => {
+// Bundel modul sumber (CommonJS) menjadi satu modul ES: tiap modul dibungkus fungsi dengan require() lokal.
+const MODULES = ['content', 'chat', 'engine'];
+put('core.js', `// DIHASILKAN OTOMATIS oleh scripts/build-web.js dari src/*.js — jangan diedit.
+const __defs = {};
+const __cache = {};
+const __load = (name) => (__cache[name] ??= __defs[name]());
+${MODULES.map((m) => `__defs.${m} = () => {
 const module = { exports: {} };
-${rd('src/chat.js')}
+const require = (p) => __load(p.replace('./', ''));
+${rd(`src/${m}.js`)}
 return module.exports;
-})();
-export const engine = (() => {
-const module = { exports: {} };
-const require = () => __chat;
-${rd('src/engine.js')}
-return module.exports;
-})();
+};`).join('\n')}
+export const engine = __load('engine');
 `);
 
 put('manifest.webmanifest', fs.readFileSync(path.join(root, 'web/manifest.webmanifest')));

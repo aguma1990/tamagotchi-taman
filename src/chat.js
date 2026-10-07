@@ -10,7 +10,7 @@ const norm = (t) =>
 /** Cocokkan kata/frasa utuh (bukan potongan di tengah kata). */
 const has = (t, ...words) => words.some((w) => new RegExp(`(^| )${w}( |$)`).test(t));
 
-const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱' };
+const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~' };
 
 const JOKES = [
   'Kenapa komputer nggak pernah lapar? Karena selalu ada byte-nya! 😄',
@@ -25,13 +25,14 @@ const STORIES = [
   'Ada awan yang iri pada matahari. Tapi tanpa awan nggak ada hujan, tanpa hujan nggak ada bunga. 🌼',
   'Si kecil menanam biji dan menyiramnya sabar tiap hari. Kini jadi pohon tempat semua teman berteduh. 🌳',
 ];
-const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎' };
+const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎', babi: 'burger, nyam nyam nyam! 🍔', trenggiling: 'air putih dingin, segar banget 💧' };
 
 function moodOf(s) {
   if (s.sleeping) return 'sleep';
   const st = s.stats;
   if (s.sick) return 'sick';
   if (st.hunger < 25) return 'hungry';
+  if (st.thirst < 25) return 'thirsty';
   if (st.energy < 20) return 'tired';
   if (st.hygiene < 25 || s.poop >= 3) return 'dirty';
   if (st.happiness < 30) return 'sad';
@@ -105,6 +106,44 @@ function reply(s, rawText, W) {
     return out('Tanya aja: kabarku, lapar nggak, mau main, misi hari ini, koin, atau minta lelucon & cerita!');
   }
 
+  // ---- topik dunia: cuaca, tamu, album, latihan, watak, keluarga, acara ----
+  if (has(t, 'cuaca', 'hujan', 'panas', 'pelangi', 'mendung', 'badai', 'petir', 'cerah', 'berawan')) {
+    const wx = {
+      cerah: 'Cerah banget hari ini, cocok buat main di luar! ☀️',
+      berawan: 'Agak berawan, tapi adem. ⛅',
+      hujan: 'Lagi hujan! Seru sih main hujan-hujanan, tapi aku jadi kotor. 🌧️',
+      badai: 'Badai nih, petirnya bikin deg-degan… peluk aku dong! ⛈️',
+      pelangi: 'Lihat pelangi itu! Katanya ada harta di ujungnya. 🌈',
+    };
+    return out(wx[W.weather] || wx.cerah);
+  }
+  if (has(t, 'tamu', 'kedatangan', 'pengunjung')) {
+    if (s.visitor) return out(`Lihat! ada ${W.C.VISITORS[s.visitor.kind].label.toLowerCase()} ${W.C.VISITORS[s.visitor.kind].emoji} di taman. Ayo sapa!`);
+    return out(`Belum ada tamu sekarang. Tamu sering mampir, kamu sudah menyapa ${s.totals.visitors} kali.`);
+  }
+  if (has(t, 'album', 'stiker', 'koleksi')) {
+    const have = Object.keys(s.album).length, all = Object.keys(W.C.STICKERS).length;
+    return out(`Album stikerku: ${have} dari ${all}. ${have < all ? 'Sapa tamu & cari harta karun buat nambah!' : 'Lengkap! Kamu hebat!'}`);
+  }
+  if (has(t, 'latihan', 'berlatih', 'keterampilan', 'skill')) {
+    const [name, v] = Object.entries(s.skills).sort((a, b) => b[1].lv - a[1].lv)[0];
+    return out(v.lv > 0 ? `Aku paling jago ${W.C.SKILLS[name].label.toLowerCase()} (level ${v.lv})! Latihan di tab Latihan yuk.` : 'Aku belum pernah latihan. Yuk coba di tab Latihan!');
+  }
+  if (has(t, 'sifat', 'watak', 'kepribadian', 'karakter')) {
+    const tr = s.trait && W.C.TRAITS[s.trait];
+    return out(tr ? `Aku ini ${tr.label.toLowerCase()} ${tr.emoji}. ${tr.desc}` : 'Wataku masih terbentuk. Tunggu aku remaja ya!');
+  }
+  if (has(t, 'keluarga', 'generasi', 'pensiun', 'lansia', 'anak cucu')) {
+    if (s.stage === 'elder') return out('Aku sudah lansia… kalau mau, aku bisa pensiun dan mewariskan telur baru. Lihat tab Koleksi.');
+    return out(s.family.length ? `Keluargaku sudah ${s.family.length} generasi sebelumnya. Aku generasi ke-${s.generation}!` : `Aku generasi ke-${s.generation}. Nanti kalau sudah tua aku bisa pensiun dan mewariskan telur.`);
+  }
+  if (has(t, 'acara', 'libur', 'hari raya', 'spesial', 'ulang tahun', 'ultah')) {
+    return out(W.event ? `Hari ini ${W.event.label} ${W.event.emoji}! Jangan lupa ambil hadiah hari spesial.` : 'Hari ini biasa aja, tapi tiap hari bareng kamu itu spesial.');
+  }
+  if (has(t, 'tidak suka', 'benci makan', 'makanan tidak enak')) {
+    return out(s.prefs.known.hate ? `Aku nggak suka ${W.FOODS[s.prefs.hate].label.toLowerCase()} ${W.FOODS[s.prefs.hate].emoji}… kurang enak.` : 'Entah ya, belum ketahuan. Coba kasih aku macam-macam makanan.');
+  }
+
   if (has(t, 'misi', 'tugas', 'quest', 'hadiah')) {
     const q = s.daily?.quests.find((x) => !x.claimed);
     if (!q) return out(`Semua misi hari ini sudah beres! Hebat, ${you}! 🎉`);
@@ -121,8 +160,16 @@ function reply(s, rawText, W) {
     if (st.energy < 20) return out('Aku pengin banget, tapi capek… tidur sebentar dulu ya? 😴');
     return out(pick([`Ayo ke ${suggestPlay(s, W)}! Aku duluan! 🏃`, `Seru! Aku mau main ${suggestPlay(s, W)}!`]));
   }
-  if (has(t, 'makanan favorit', 'suka apa', 'favorit')) return out(`Aku paling suka ${FAVORITE[s.species]}`);
-  if (has(t, 'lapar', 'laper', 'makan', 'kenyang', 'ngemil', 'makanan', 'haus', 'minum')) {
+  if (has(t, 'makanan favorit', 'suka apa', 'favorit')) {
+    if (s.prefs.known.fav) return out(`Makanan favoritku ${W.FOODS[s.prefs.fav].label.toLowerCase()} ${W.FOODS[s.prefs.fav].emoji}! Enak banget.`);
+    return out('Hmm, aku sendiri belum yakin. Coba kasih aku macam-macam, nanti ketahuan favoritku. 😋');
+  }
+  if (has(t, 'haus', 'minum', 'dahaga', 'air', 'tenggorokan')) {
+    if (st.thirst < 30) return out(`Iya, aku haus banget! Tinggal ${Math.round(st.thirst)}%. Minum dong 💧`);
+    if (st.thirst < 70) return out('Lumayan haus sih… seteguk air putih enak nih.');
+    return out(`Aku nggak haus (${Math.round(st.thirst)}%). Makasih udah nanya!`);
+  }
+  if (has(t, 'lapar', 'laper', 'makan', 'kenyang', 'ngemil', 'makanan')) {
     if (st.hunger < 30) return out(`Iya, aku lapar banget! Kenyangku tinggal ${Math.round(st.hunger)}%. Kasih apel dong 🍎`);
     if (st.hunger < 70) return out('Lumayan sih… ngemil dikit boleh. 😋');
     return out(`Aku masih kenyang banget (${Math.round(st.hunger)}%)! Makasih udah perhatian.`);
@@ -150,6 +197,7 @@ function reply(s, rawText, W) {
     const hi = greet ? `Hai ${you}! ` : '';
     const byMood = {
       hungry: `Perutku keroncongan… kenyangku ${Math.round(st.hunger)}%.`,
+      thirsty: `Tenggorokanku kering… hausku ${Math.round(st.thirst)}%.`,
       tired: `Aku ngantuk berat, energiku ${Math.round(st.energy)}%.`,
       dirty: 'Aku merasa kurang bersih. Mandiin dong.',
       sick: 'Badanku nggak enak… butuh obat.',
@@ -162,8 +210,14 @@ function reply(s, rawText, W) {
 
   if (greet) {
     const p = part(W.hour);
-    const base = pick([`Halo ${you}! Selamat ${p}!`, `Hai hai ${you}! Lagi ${p} nih di taman.`, `Eh, ${you} datang! Selamat ${p}!`]);
-    const add = { hungry: ' Aku lapar nih…', tired: ' Aku ngantuk sih…', dirty: ' Aku agak kotor…', sick: ' Aku kurang sehat…', sad: ' Aku agak murung…', happy: ' Aku lagi senang! 😄', neutral: '' }[mood];
+    const away = W.now - (s.memory?.interact || W.now);
+    const last = s.memory?.play && W.now - s.memory.play.t < 6 * 3600e3 ? W.PLAYGROUND[s.memory.play.item]?.label.toLowerCase() : null;
+    const base = away > 6 * 3600e3
+      ? `${you}! Lama banget nggak ketemu, aku kangen! Selamat ${p}!`
+      : last && W.rand() < 0.6
+        ? `Halo ${you}! Tadi aku seru banget main di ${last}. Selamat ${p}!`
+        : pick([`Halo ${you}! Selamat ${p}!`, `Hai hai ${you}! Lagi ${p} nih di taman.`, `Eh, ${you} datang! Selamat ${p}!`]);
+    const add = { hungry: ' Aku lapar nih…', thirsty: ' Aku haus nih…', tired: ' Aku ngantuk sih…', dirty: ' Aku agak kotor…', sick: ' Aku kurang sehat…', sad: ' Aku agak murung…', happy: ' Aku lagi senang! 😄', neutral: '' }[mood];
     return out(base + add);
   }
 

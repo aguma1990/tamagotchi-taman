@@ -78,6 +78,8 @@ test('makan: kenyang ditolak, koin dipotong', () => {
   assert.ok(r.ok);
   assert.equal(s.coins, 15);
   s.stats.hunger = 99;
+  s.stats.thirst = 99;
+  s.stats.energy = 99;
   r = engine.perform(s, s.lastTickAt, { type: 'feed', food: 'apel' });
   assert.equal(r.ok, false);
   r = engine.perform(s, s.lastTickAt, { type: 'feed', food: 'tidakada' });
@@ -102,7 +104,9 @@ test('minigame: skor dibatasi & input tidak valid ditolak', () => {
   s.coins = 0;
   const r = engine.perform(s, s.lastTickAt, { type: 'minigame', score: 99999 });
   assert.ok(r.ok);
-  assert.equal(s.coins, 12);
+  // 12 koin (batas) + 3 bonus rekor + 25 prestasi "Pemecah Rekor" (skor 60 ≥ 40)
+  assert.equal(s.highscores.stars, 60);
+  assert.equal(s.coins, 12 + engine.C.RECORD_BONUS + 25);
 });
 
 test('sakit lalu sembuh dengan obat', () => {
@@ -404,4 +408,62 @@ test('obrolan: tersimpan permanen di chat.jsonl dan selamat dari restart', () =>
   assert.deepEqual(log.map((m) => m.from), ['you', 'pet']);
   assert.equal(log[0].text, 'Halo Momo');
   assert.equal(log[1].text, r.reply);
+});
+
+// ---------- haus, minum, spesies baru ----------
+test('haus: menurun seiring waktu & dipulihkan oleh air putih', () => {
+  const s = hatched();
+  const t0 = s.stats.thirst;
+  engine.advance(s, s.lastTickAt + 3 * MIN);
+  assert.ok(s.stats.thirst < t0);
+  s.stats.thirst = 20;
+  const r = act(s, { type: 'feed', food: 'air' });
+  assert.ok(r.ok);
+  assert.ok(s.stats.thirst >= 60);
+  assert.equal(r.effects.thirst > 0, true);
+  assert.equal(s.coins >= 0, true);
+});
+
+test('minum ditolak bila tidak haus, makan tidak ditolak karena haus saja', () => {
+  const s = hatched();
+  s.stats.thirst = 99;
+  assert.match(act(s, { type: 'feed', food: 'air' }).error, /tidak haus/);
+  s.stats.hunger = 30;
+  assert.ok(act(s, { type: 'feed', food: 'burger' }).ok);
+});
+
+test('haus parah menurunkan kesehatan tetapi tidak mematikan', () => {
+  const s = hatched();
+  s.stats.thirst = 0; s.stats.hunger = 100; s.stats.energy = 100; s.stats.hygiene = 100;
+  const h = s.stats.health;
+  engine.advance(s, s.lastTickAt + 4 * MIN);
+  assert.ok(s.stats.health < h);
+  engine.advance(s, s.lastTickAt + 40 * 24 * HOUR);
+  assert.ok(s.stats.health >= 1);
+});
+
+test('obrolan: pertanyaan soal haus dibalas sesuai kondisi', () => {
+  const s = hatched();
+  s.stats.thirst = 10;
+  assert.match(say(s, 'kamu haus nggak?').reply, /haus/i);
+  s.stats.thirst = 95;
+  assert.match(say(s, 'haus?', s.lastTickAt + 40000).reply, /nggak haus/i);
+});
+
+test('spesies babi & trenggiling bisa dibuat dan berbicara', () => {
+  for (const sp of ['babi', 'trenggiling']) {
+    const r = engine.createPet({ name: 'X', species: sp }, T0, `id-${sp}`, 3);
+    assert.ok(r.ok, sp);
+    const s = r.state;
+    engine.advance(s, T0 + 5 * MIN);
+    assert.ok(say(s, 'apa kabar', T0 + 5 * MIN).reply.length > 0);
+  }
+  assert.equal(engine.createPet({ name: 'X', species: 'naga' }, T0, 'i', 1).ok, false);
+});
+
+test('migrasi: save lama tanpa stat haus diberi nilai awal', () => {
+  const s = hatched();
+  delete s.stats.thirst;
+  engine.migrate(s, s.lastTickAt);
+  assert.equal(s.stats.thirst, 80);
 });

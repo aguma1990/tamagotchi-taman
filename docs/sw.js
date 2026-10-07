@@ -1,9 +1,10 @@
 // Service worker: aplikasi bisa dibuka tanpa internet. Versi cache berubah tiap build.
-const CACHE = 'tamagotchi-13258f7aa8';
+const CACHE = 'tamagotchi-7623696da2';
 const ASSETS = [
   "./",
   "./app.js",
   "./audio.js",
+  "./card.js",
   "./minigame.js",
   "./scene.js",
   "./style.css",

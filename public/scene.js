@@ -7,6 +7,8 @@ const PALETTES = {
   mochi: { body: '#ffb3c7', light: '#ffe0e9', dark: '#f27ea1', accent: '#ff6f9c' },
   bubu: { body: '#9cc8ff', light: '#dcecff', dark: '#5e9be8', accent: '#3f7fd6' },
   leafy: { body: '#a6e6a1', light: '#e3f9df', dark: '#62c46b', accent: '#3fae56' },
+  babi: { body: '#ffc2c4', light: '#ffe9e6', dark: '#f08c92', accent: '#e86a74' },
+  trenggiling: { body: '#cfa97f', light: '#eddcc4', dark: '#8a6540', accent: '#6b4a2b' },
 };
 
 // Posisi wahana (x, y dasar). Kunci harus cocok dengan PLAYGROUND di server.
@@ -64,16 +66,41 @@ export function moodOf(p) {
   const s = p.stats;
   if (p.sick) return 'sick';
   if (s.hunger < 25) return 'hungry';
+  if (s.thirst < 25) return 'thirsty';
   if (s.energy < 20) return 'tired';
   if (s.hygiene < 25 || p.poop >= 3) return 'dirty';
   if (s.happiness < 30) return 'sad';
   if (s.happiness > 70 && s.hunger > 40) return 'happy';
   return 'neutral';
 }
-const NEED_ICON = { hungry: '🍎', tired: '💤', dirty: '🛁', sick: '💊', sad: '💭' };
+const SHINY = {
+  mochi: { body: '#ffc78a', light: '#ffeacf', dark: '#f09a4a', accent: '#e07a1c' },
+  bubu: { body: '#c9a8ff', light: '#ece0ff', dark: '#9a73e6', accent: '#7a4fd0' },
+  leafy: { body: '#8fe8e0', light: '#dcfbf7', dark: '#4fc9bf', accent: '#2fa89f' },
+  babi: { body: '#fff0b3', light: '#fffbe3', dark: '#f0c14b', accent: '#d9a21f' },
+  trenggiling: { body: '#9fb7e8', light: '#dbe5fa', dark: '#6f86bf', accent: '#4a60a0' },
+};
+const palOf = (p) => (p.shiny ? SHINY[p.species] : PALETTES[p.species]) || PALETTES.mochi;
+
+// Tema taman: [siang, malam] untuk tiap lapisan.
+const THEME_COLORS = {
+  default: { hill1: ['#8fd19e', '#2c5a58'], hill2: ['#6cc07f', '#244c4a'], g0: ['#7ed48b', '#2f6a55'], g1: ['#4fae67', '#1c4a3f'], blade: ['#5fbe74', '#2a6150'], fence: ['#f3e3c3', '#6a6a86'], dots: ['#fff', '#ffd6e0', '#fff3a8'] },
+  sakura: { hill1: ['#b9dca6', '#34585a'], hill2: ['#9ccf9a', '#2a4c4c'], g0: ['#a5dc96', '#356a52'], g1: ['#7cc486', '#1f4a3c'], blade: ['#8fd08f', '#2c6350'], fence: ['#fbe3e8', '#7a6a86'], dots: ['#ffc8dc', '#ffe3ee', '#fff'] },
+  gugur: { hill1: ['#d8b765', '#5a4a2c'], hill2: ['#c98f4a', '#4a3a24'], g0: ['#cdb56a', '#4f5a38'], g1: ['#a9954a', '#33401f'], blade: ['#c4a24a', '#4a5a30'], fence: ['#e8d3a8', '#6a6070'], dots: ['#ffb75e', '#e5703a', '#ffe08a'] },
+  salju: { hill1: ['#e8f2fa', '#4a5878'], hill2: ['#d6e6f3', '#3f4c6c'], g0: ['#f3f8fc', '#52618a'], g1: ['#d9e7f3', '#3a4870'], blade: ['#c8dcec', '#46557c'], fence: ['#ffffff', '#8c96b4'], dots: ['#ffffff', '#dff0ff', '#cfe6ff'] },
+};
+const EVENT_COLORS = {
+  kemerdekaan: ['#e8203a', '#ffffff'], natal: ['#d63a3a', '#2f9e5b'], halloween: ['#f08a1f', '#7a4fd0'], ramadhan: ['#2f9e5b', '#f2c94c'],
+  idulfitri: ['#2f9e5b', '#f2c94c'], iduladha: ['#2f9e5b', '#f2c94c'], tahunbaruislam: ['#2f9e5b', '#f2c94c'], tahunbaru: ['#f2c94c', '#4a90e2'],
+  valentine: ['#ff6b9d', '#e8203a'], ultah: ['#ff6b9d', '#4a90e2', '#f2c94c', '#6ee7a8'],
+};
+const DECOR_X = { pohon: 40, bunga: 95, semak: 215, tenda: 300, payung: 385, kincir: 465, bangku: 560, balon: 625, lampu: 700, kotakpos: 868 };
+const DECOR_Y = 372;
+const CONFETTI_PETAL = ['#ffc8dc', '#ffb3cf', '#ffe3ee'];
+const NEED_ICON = { hungry: '🍎', thirsty: '💧', tired: '💤', dirty: '🛁', sick: '💊', sad: '💭' };
 
 export class Scene {
-  constructor(canvas, { reducedMotion = false } = {}) {
+  constructor(canvas, { reducedMotion = false, headless = false } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.reduced = reducedMotion;
@@ -88,7 +115,20 @@ export class Scene {
     this.activity = null; // {kind, until, start}
     this.eating = null; // {emoji, start, until}
     this.treasure = null; // {x, amount}
+    this.curl = 0; // 0 = berdiri, 1 = menggulung jadi bola (trenggiling)
+    this.rollAngle = 0;
+    this.rollMode = false;
+    this.spinUntil = 0;
     this.bubble = null; // {text, until}
+    this.world = null; // {weather, event}
+    this.theme = 'default';
+    this.decor = []; // id dekorasi yang terpasang
+    this.visitor = null; // {kind, x}
+    this.training = null; // {kind, start, until, x0}
+    this.cloud = 0; this.wet = 0; this.rb = 0; this.flash = 0; this.bolt = null;
+    this.ambient = [];
+    this.onThunder = null;
+    this.headless = headless;
     this.bathing = null; // {start, until}
     this.blink = 0;
     this.blinkTimer = 3;
@@ -96,12 +136,15 @@ export class Scene {
     this.hover = null;
     this.getLocked = () => ({}); // (item) => {locked, label}
     this.getHour = null; // jam waktu-game (0-24)
-    this.clouds = Array.from({ length: 5 }, () => ({ x: rand(0, W), y: rand(30, 170), s: rand(0.7, 1.4), v: rand(4, 10) }));
+    this.clouds = Array.from({ length: 9 }, () => ({ x: rand(0, W), y: rand(30, 170), s: rand(0.7, 1.4), v: rand(4, 10) }));
     this.stars = Array.from({ length: 60 }, () => ({ x: rand(0, W), y: rand(0, HORIZON - 40), r: rand(0.6, 1.6), p: rand(0, 6) }));
     this.ballX = SPOTS.ball.x;
     this.lastStage = null;
-    this._resize();
-    new ResizeObserver(() => this._resize()).observe(canvas.parentElement);
+    if (headless) this.k = canvas.width / W;
+    else {
+      this._resize();
+      new ResizeObserver(() => this._resize()).observe(canvas.parentElement);
+    }
   }
 
   _resize() {
@@ -128,6 +171,8 @@ export class Scene {
   }
 
   hitTest(pt) {
+    const vp = this._visitorPos();
+    if (vp && Math.hypot(pt.x - vp.x, pt.y - (vp.y - 14)) < 40) return { type: 'visitor' };
     if (this.treasure && Math.hypot(pt.x - this.treasure.x, pt.y - (TREASURE_Y - 20)) < 44) return { type: 'treasure' };
     if (this.pet && this.pet.stage !== 'egg' && Math.hypot(pt.x - this.x, pt.y - (this.y - 45)) < 55) return { type: 'pet' };
     if (this.pet?.stage === 'egg' && Math.hypot(pt.x - this.x, pt.y - (this.y - 45)) < 45) return { type: 'pet' };
@@ -142,6 +187,27 @@ export class Scene {
     if (!s) return;
     this.activity = { kind, start: this.t, until: this.t + 4.2, arrived: false };
     this.targetX = kind === 'ball' ? s.x - 60 : s.x;
+  }
+
+  /** Mulai animasi latihan: lari | pintar | tangguh. */
+  train(kind) {
+    if (!this.pet || this.pet.sleeping || this.pet.stage === 'egg') return;
+    this.activity = null; this.eating = null; this.bathing = null; this.walking = false; this.spinUntil = 0; this.rollMode = false;
+    this.training = { kind, start: this.t, until: this.t + 3.4, x0: this.x };
+  }
+
+  /** Gambar hanya peliharaan (untuk kartu bagikan). */
+  renderPortrait() {
+    const c = this.ctx;
+    c.setTransform(this.k, 0, 0, this.k, 0, 0);
+    c.clearRect(0, 0, W, H);
+    if (this.pet) this._pet(c);
+  }
+
+  /** Trenggiling menggulung dan berputar di tempat. */
+  petSpin() {
+    if (!this.pet || this.pet.sleeping || this.pet.stage === 'egg') return;
+    if (this.pet.species === 'trenggiling') { this.spinUntil = this.t + 1.7; this.activity = null; this.walking = false; }
   }
 
   say(text, secs) {
@@ -209,9 +275,28 @@ export class Scene {
     if (p && p.stage !== 'egg' && !p.sleeping) this._updatePetMotion(dt);
     else {
       this.walking = false;
+      this.training = null;
       this.eating = null; // animasi tidak boleh macet bila peliharaan tertidur
       this.bathing = null;
     }
+
+    this._updateWorld(dt);
+    // peliharaan langka berkilau
+    if (p?.shiny && p.stage !== 'egg' && !this.reduced && Math.random() < dt * 1.6) {
+      this.particles.push({ kind: 'spark', x: this.x + rand(-44, 44), y: this.y - rand(10, 90), vx: 0, vy: -14, life: 0, max: 1.1, size: rand(8, 13) });
+    }
+    // trenggiling: menggulung jadi bola saat berguling, berputar, atau main bola
+    const pang = p?.species === 'trenggiling' && p.stage !== 'egg' && !p.sleeping;
+    const spinning = this.t < this.spinUntil;
+    const ballPlay = this.activity?.kind === 'ball' && this.activity.arrived;
+    const want = pang && (spinning || this.rollMode || ballPlay) ? 1 : 0;
+    this.curl += (want - this.curl) * Math.min(1, dt * 9);
+    if (Math.abs(this.curl - want) < 0.01) this.curl = want;
+    if (!pang) { this.curl = 0; this.rollMode = false; }
+    const rad = 36 * this._stageScale(p || { stage: 'adult' });
+    if (spinning) this.rollAngle += 13 * dt;
+    else if (this.walking && this.rollMode) this.rollAngle += this.facing * (170 / rad) * dt;
+    else if (ballPlay) this.rollAngle += 5 * dt;
 
     // bola menggelinding kembali
     this.ballX += (SPOTS.ball.x - this.ballX) * Math.min(1, dt * 1.2);
@@ -226,7 +311,52 @@ export class Scene {
     if (p?.sleeping && Math.random() < dt * 0.6) this.particles.push({ kind: 'zzz', x: this.x + 30, y: this.y - 100, vx: 10, vy: -22, life: 0, max: 2.4 });
   }
 
+  _updateWorld(dt) {
+    const wx = this.world?.weather || 'cerah';
+    const wet = wx === 'hujan' || wx === 'badai';
+    const ease = (cur, target, rate) => cur + (target - cur) * Math.min(1, dt * rate);
+    this.cloud = ease(this.cloud, wx === 'cerah' ? 0 : wx === 'pelangi' ? 0.25 : 1, 0.7);
+    this.wet = ease(this.wet, wet ? 1 : 0, wet ? 0.5 : 0.05);
+    this.rb = ease(this.rb, wx === 'pelangi' ? 1 : 0, 0.5);
+    if (wx === 'badai' && Math.random() < dt * 0.14) { this.flash = 1; this.bolt = { x: rand(120, 780), seed: Math.random() }; this.onThunder?.(); }
+    this.flash = Math.max(0, this.flash - dt * 2.4);
+
+    const rate = this.reduced ? 0.4 : 1;
+    if (wet && this.ambient.length < (wx === 'badai' ? 420 : 260)) {
+      for (let i = 0, n = Math.round((wx === 'badai' ? 260 : 150) * dt * rate); i < n; i++) {
+        this.ambient.push({ kind: 'rain', x: rand(-60, W), y: -12, vx: -90 - (wx === 'badai' ? 70 : 0), vy: rand(560, 760), len: rand(10, 17) });
+      }
+    }
+    const th = this.theme;
+    if ((th === 'sakura' || th === 'gugur' || th === 'salju') && this.ambient.length < 90 && Math.random() < dt * 7 * rate) {
+      this.ambient.push({ kind: th, x: rand(-20, W), y: -10, vx: rand(-20, 20), vy: rand(30, th === 'salju' ? 55 : 45), ph: rand(0, 6), r: rand(2.4, 4.6), c: Math.floor(rand(0, 3)) });
+    }
+    if (this.world?.event?.id === 'tahunbaru' && !this.reduced && Math.random() < dt * 0.7) {
+      this.burst(rand(150, 750), rand(60, 190), 'spark', 14);
+    }
+    for (const q of this.ambient) {
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.kind !== 'rain') { q.x += Math.sin(this.t * 1.6 + q.ph) * 24 * dt; }
+    }
+    this.ambient = this.ambient.filter((q) => q.y < H + 20 && q.x > -80 && q.x < W + 80);
+    // tamu unicorn berkilau
+    const vp = this._visitorPos();
+    if (vp && this.visitor.kind === 'unicorn' && Math.random() < dt * 6) this.particles.push({ kind: 'spark', x: vp.x, y: vp.y - 20, vx: rand(-10, 10), vy: rand(-20, 0), life: 0, max: 0.9, size: 11 });
+  }
+
   _updatePetMotion(dt) {
+    if (this.training) {
+      const tr = this.training, k = this.t - tr.start;
+      this.walking = false;
+      if (this.t >= tr.until) { this.training = null; this.idleTimer = 1.2; this.targetX = this.x; this.burst(this.x, this.y - 70, 'spark', 10); return; }
+      if (tr.kind === 'lari') {
+        this.x = tr.x0 + Math.sin(k * 3.4) * 95;
+        this.facing = Math.cos(k * 3.4) >= 0 ? 1 : -1;
+        this.walking = true;
+        if (Math.random() < dt * 16) this.particles.push({ kind: 'sand', x: this.x - this.facing * 20, y: this.y - 4, vx: -this.facing * rand(15, 50), vy: rand(-60, -20), life: 0, max: 0.5 });
+      }
+      return;
+    }
     if (this.bathing) {
       this.walking = false;
       const b = this.bathing;
@@ -300,16 +430,21 @@ export class Scene {
     if (this.idleTimer <= 0) {
       this.targetX = rand(90, W - 90);
       this.idleTimer = rand(3, 7);
+      this.rollMode = this.pet.species === 'trenggiling' && Math.abs(this.targetX - this.x) > 140 && Math.random() < 0.6;
     }
     const dx = this.targetX - this.x;
-    if (Math.abs(dx) > 5) this._walk(dx, dt, 38);
-    else this.walking = false;
+    if (Math.abs(dx) > 5) {
+      if (this.rollMode) {
+        if (this.curl > 0.7) this._walk(dx, dt, 170); else this.walking = false; // menggulung dulu, baru berguling
+      } else this._walk(dx, dt, 38);
+    } else { this.walking = false; this.rollMode = false; }
   }
 
   _walk(dx, dt, speed) {
     this.walking = true;
     this.facing = dx > 0 ? 1 : -1;
-    this.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
+    const slow = this.pet?.stage === 'elder' ? 0.72 : 1; // lansia berjalan pelan
+    this.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * slow * dt);
   }
 
   // ---------- draw ----------
@@ -321,16 +456,23 @@ export class Scene {
     const hour = Number.isFinite(forced) && forced >= 0 && forced < 24 && location.search.includes('jam')
       ? forced : (this.getHour ? this.getHour() : now.getHours() + now.getMinutes() / 60);
     const dark = darkness(hour);
+    const th = THEME_COLORS[this.theme] || THEME_COLORS.default;
     this._sky(c, hour, dark);
-    this._hills(c, dark);
-    this._ground(c, dark);
-    this._fence(c, dark);
+    this._rainbow(c, dark);
+    this._hills(c, dark, th);
+    this._ground(c, dark, th);
+    this._puddles(c, dark);
+    this._fence(c, dark, th);
+    this._decor(c, dark);
+    this._eventDecor(c, dark);
     this._items(c);
     this._poop(c);
     this._treasureChest(c);
+    this._visitorDraw(c);
     if (this.pet) this._pet(c);
     this._sandboxFront(c);
     this._particles(c);
+    this._weatherFront(c);
     if (this.pet?.sleeping) {
       c.fillStyle = 'rgba(8,10,40,.35)';
       c.fillRect(0, 0, W, H);
@@ -338,6 +480,11 @@ export class Scene {
       c.fillStyle = `rgba(10,14,50,${0.22 * dark})`;
       c.fillRect(0, 0, W, H);
     }
+    if (this.cloud > 0.05) { // mendung: suasana sedikit lebih redup
+      c.fillStyle = `rgba(40,52,84,${0.16 * this.cloud})`;
+      c.fillRect(0, 0, W, H);
+    }
+    if (this.flash > 0.02) { c.fillStyle = `rgba(255,255,255,${this.flash * 0.45})`; c.fillRect(0, 0, W, H); }
   }
 
   _sky(c, hour, dark) {
@@ -350,7 +497,7 @@ export class Scene {
 
     if (dark > 0.05) {
       for (const s of this.stars) {
-        c.globalAlpha = dark * (0.5 + 0.5 * Math.sin(this.t * 1.5 + s.p));
+        c.globalAlpha = dark * (0.5 + 0.5 * Math.sin(this.t * 1.5 + s.p)) * (1 - this.cloud * 0.85);
         c.fillStyle = '#fff';
         c.beginPath();
         c.arc(s.x, s.y, s.r, 0, 7);
@@ -370,6 +517,7 @@ export class Scene {
       c.fillStyle = skyAt(hour).top;
       c.beginPath(); c.arc(cx + 10, cy - 6, 24, 0, 7); c.fill();
     } else {
+      c.globalAlpha = 1 - this.cloud * 0.8; // matahari redup saat mendung
       const glow = c.createRadialGradient(cx, cy, 10, cx, cy, 90);
       glow.addColorStop(0, 'rgba(255,230,150,.7)');
       glow.addColorStop(1, 'rgba(255,230,150,0)');
@@ -377,39 +525,57 @@ export class Scene {
       c.fillRect(cx - 100, cy - 100, 200, 200);
       c.fillStyle = '#ffe27a';
       c.beginPath(); c.arc(cx, cy, 30, 0, 7); c.fill();
+      c.globalAlpha = 1;
     }
-    // awan
-    for (const cl of this.clouds) {
-      c.fillStyle = `rgba(255,255,255,${0.85 - dark * 0.55})`;
+    // awan (lebih banyak & kelabu saat mendung)
+    this.clouds.forEach((cl, i) => {
+      const vis = i < 5 ? 1 : this.cloud;
+      if (vis < 0.02) return;
+      c.globalAlpha = (0.85 - dark * 0.55) * vis;
+      c.fillStyle = mix('#ffffff', '#7d869c', this.cloud * 0.85);
       c.beginPath();
       c.ellipse(cl.x, cl.y, 46 * cl.s, 16 * cl.s, 0, 0, 7);
       c.ellipse(cl.x - 26 * cl.s, cl.y + 4, 28 * cl.s, 12 * cl.s, 0, 0, 7);
       c.ellipse(cl.x + 28 * cl.s, cl.y + 5, 30 * cl.s, 12 * cl.s, 0, 0, 7);
       c.fill();
-    }
+    });
+    c.globalAlpha = 1;
   }
 
-  _hills(c, dark) {
+  _rainbow(c, dark) {
+    if (this.rb < 0.02) return;
+    const cols = ['#ff5a5a', '#ffa14a', '#ffe14a', '#6bdc6b', '#5ab8ff', '#8a6bff'];
+    c.save();
+    c.lineWidth = 13;
+    cols.forEach((col, i) => {
+      c.globalAlpha = 0.42 * this.rb * (1 - dark * 0.6);
+      c.strokeStyle = col;
+      c.beginPath(); c.arc(W * 0.56, HORIZON + 80, 370 - i * 12.5, Math.PI, 0); c.stroke();
+    });
+    c.restore();
+  }
+
+  _hills(c, dark, th) {
     const col = (a, b) => mix(a, b, dark);
-    c.fillStyle = col('#8fd19e', '#2c5a58');
+    c.fillStyle = col(th.hill1[0], th.hill1[1]);
     c.beginPath();
     c.moveTo(0, HORIZON);
     for (let x = 0; x <= W; x += 30) c.lineTo(x, HORIZON - 50 - Math.sin(x / 130) * 26);
     c.lineTo(W, HORIZON + 10); c.lineTo(0, HORIZON + 10); c.fill();
-    c.fillStyle = col('#6cc07f', '#244c4a');
+    c.fillStyle = col(th.hill2[0], th.hill2[1]);
     c.beginPath();
     c.moveTo(0, HORIZON);
     for (let x = 0; x <= W; x += 30) c.lineTo(x, HORIZON - 20 - Math.sin(x / 90 + 2) * 16);
     c.lineTo(W, HORIZON + 10); c.lineTo(0, HORIZON + 10); c.fill();
   }
 
-  _ground(c, dark) {
+  _ground(c, dark, th) {
     const g = c.createLinearGradient(0, HORIZON - 10, 0, H);
-    g.addColorStop(0, mix('#7ed48b', '#2f6a55', dark));
-    g.addColorStop(1, mix('#4fae67', '#1c4a3f', dark));
+    g.addColorStop(0, mix(th.g0[0], th.g0[1], dark));
+    g.addColorStop(1, mix(th.g1[0], th.g1[1], dark));
     c.fillStyle = g;
     c.fillRect(0, HORIZON - 10, W, H - HORIZON + 10);
-    c.strokeStyle = mix('#5fbe74', '#2a6150', dark);
+    c.strokeStyle = mix(th.blade[0], th.blade[1], dark);
     c.lineWidth = 2;
     for (let i = 0; i < 70; i++) {
       const x = (i * 137) % W, y = HORIZON + 20 + ((i * 53) % (H - HORIZON - 20));
@@ -418,13 +584,13 @@ export class Scene {
     // bunga
     for (let i = 0; i < 14; i++) {
       const x = (i * 211 + 40) % W, y = HORIZON + 30 + ((i * 97) % (H - HORIZON - 50));
-      c.fillStyle = ['#fff', '#ffd6e0', '#fff3a8'][i % 3];
+      c.fillStyle = th.dots[i % 3];
       c.beginPath(); c.arc(x, y, 3.2, 0, 7); c.fill();
     }
   }
 
-  _fence(c, dark) {
-    c.fillStyle = mix('#f3e3c3', '#6a6a86', dark);
+  _fence(c, dark, th) {
+    c.fillStyle = mix(th.fence[0], th.fence[1], dark);
     const y = HORIZON + 2;
     c.fillRect(0, y + 14, W, 6);
     c.fillRect(0, y + 30, W, 5);
@@ -432,6 +598,239 @@ export class Scene {
       c.beginPath();
       c.moveTo(x, y + 40); c.lineTo(x, y + 6); c.lineTo(x + 8, y - 4); c.lineTo(x + 16, y + 6); c.lineTo(x + 16, y + 40);
       c.fill();
+    }
+  }
+
+  _puddles(c, dark) {
+    if (this.wet < 0.03) return;
+    const spots = [[150, 440, 46], [400, 488, 58], [570, 428, 38], [770, 486, 54], [265, 506, 42], [880, 436, 30]];
+    const raining = (this.world?.weather === 'hujan' || this.world?.weather === 'badai');
+    spots.forEach(([x, y, r], i) => {
+      c.fillStyle = `rgba(${150 - dark * 70},${200 - dark * 90},${240 - dark * 70},${0.5 * this.wet})`;
+      c.beginPath(); c.ellipse(x, y, r * this.wet, r * 0.27 * this.wet, 0, 0, 7); c.fill();
+      c.fillStyle = `rgba(255,255,255,${0.25 * this.wet})`;
+      c.beginPath(); c.ellipse(x - r * 0.25, y - 2, r * 0.28 * this.wet, r * 0.06, 0, 0, 7); c.fill();
+      if (raining) {
+        const k = (this.t * 0.9 + i * 0.37) % 1;
+        c.strokeStyle = `rgba(255,255,255,${(1 - k) * 0.6})`; c.lineWidth = 1.4;
+        c.beginPath(); c.ellipse(x + Math.sin(i * 7) * r * 0.3, y, r * 0.45 * k, r * 0.12 * k, 0, 0, 7); c.stroke();
+      }
+    });
+  }
+
+  /** Dekorasi taman yang dibeli & dipasang pemain. */
+  _decor(c, dark) {
+    for (const id of this.decor) {
+      const fn = this[`_dc_${id}`];
+      if (fn) fn.call(this, c, DECOR_X[id] ?? 450, dark);
+    }
+  }
+  _dc_shadow(c, x, rx) { this._shadow(c, x, DECOR_Y + 3, rx); }
+  _dc_pohon(c, x, dark) {
+    const y = DECOR_Y, th = this.theme;
+    const leaf = { sakura: '#f6a9c4', gugur: '#e2893a', salju: '#e9f3fb' }[th] || '#4fae67';
+    const leaf2 = { sakura: '#fbc6da', gugur: '#f2b04e', salju: '#ffffff' }[th] || '#6cc47a';
+    this._dc_shadow(c, x, 54);
+    c.fillStyle = mix('#8a5a34', '#3a2a22', dark); c.beginPath(); c.roundRect(x - 12, y - 78, 24, 82, 6); c.fill();
+    c.fillStyle = mix(leaf, '#1f4a3f', dark * 0.7);
+    for (const [dx, dy, r] of [[0, -112, 54], [-38, -86, 40], [38, -88, 42]]) { c.beginPath(); c.arc(x + dx, y + dy, r, 0, 7); c.fill(); }
+    c.fillStyle = mix(leaf2, '#2a5a48', dark * 0.7);
+    for (const [dx, dy, r] of [[-10, -122, 30], [22, -98, 22], [-36, -92, 18]]) { c.beginPath(); c.arc(x + dx, y + dy, r, 0, 7); c.fill(); }
+  }
+  _dc_bunga(c, x, dark) {
+    const y = DECOR_Y;
+    for (const [dx, h] of [[0, 52], [30, 40]]) {
+      const sw = Math.sin(this.t * 1.5 + dx) * 2.5;
+      c.strokeStyle = mix('#3fae56', '#1c4a3f', dark); c.lineWidth = 4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x + dx, y + 2); c.quadraticCurveTo(x + dx + sw, y - h / 2, x + dx + sw * 1.4, y - h); c.stroke();
+      const fx = x + dx + sw * 1.4, fy = y - h;
+      c.fillStyle = mix('#ffd93d', '#8a7a2a', dark);
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; c.beginPath(); c.ellipse(fx + Math.cos(a) * 10, fy + Math.sin(a) * 10, 6, 3.4, a, 0, 7); c.fill(); }
+      c.fillStyle = '#7a4a22'; c.beginPath(); c.arc(fx, fy, 6, 0, 7); c.fill();
+    }
+  }
+  _dc_semak(c, x, dark) {
+    const y = DECOR_Y;
+    this._dc_shadow(c, x, 46);
+    c.fillStyle = mix('#3f9a52', '#1c4a3f', dark);
+    for (const [dx, dy, r] of [[-22, -14, 20], [0, -22, 24], [22, -14, 20], [0, -6, 22]]) { c.beginPath(); c.arc(x + dx, y + dy, r, 0, 7); c.fill(); }
+    const cols = this.theme === 'sakura' ? ['#ffc8dc', '#fff'] : ['#ff7aa8', '#ffd1e0'];
+    for (let i = 0; i < 7; i++) { c.fillStyle = cols[i % 2]; c.beginPath(); c.arc(x - 26 + i * 9, y - 18 - Math.sin(i * 2) * 10, 3.6, 0, 7); c.fill(); }
+  }
+  _dc_tenda(c, x, dark) {
+    const y = DECOR_Y + 4;
+    this._dc_shadow(c, x, 56);
+    c.fillStyle = mix('#ff8a5b', '#6a4a5a', dark * 0.8);
+    c.beginPath(); c.moveTo(x - 50, y); c.lineTo(x, y - 76); c.lineTo(x + 50, y); c.closePath(); c.fill();
+    c.fillStyle = mix('#fff4e6', '#8a8aa0', dark * 0.8);
+    c.beginPath(); c.moveTo(x - 17, y); c.lineTo(x, y - 76); c.lineTo(x + 17, y); c.closePath(); c.fill();
+    c.fillStyle = mix('#7a3d2a', '#2a1a2a', dark);
+    c.beginPath(); c.moveTo(x - 15, y); c.lineTo(x, y - 40); c.lineTo(x + 15, y); c.closePath(); c.fill();
+    c.strokeStyle = '#6b5b4b'; c.lineWidth = 3; c.beginPath(); c.moveTo(x, y - 76); c.lineTo(x, y - 94); c.stroke();
+    c.fillStyle = '#ef476f'; c.beginPath(); c.moveTo(x, y - 94); c.lineTo(x + 18 + Math.sin(this.t * 4) * 2, y - 89); c.lineTo(x, y - 84); c.fill();
+  }
+  _dc_payung(c, x, dark) {
+    const y = DECOR_Y + 6;
+    this._dc_shadow(c, x, 40);
+    c.strokeStyle = mix('#8a5a34', '#3a2a22', dark); c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x, y); c.lineTo(x + 4, y - 84); c.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a0 = Math.PI + (i / 6) * Math.PI, a1 = Math.PI + ((i + 1) / 6) * Math.PI;
+      c.fillStyle = mix(i % 2 ? '#ffffff' : '#ef476f', '#3a3a58', dark * 0.7);
+      c.beginPath(); c.moveTo(x + 4, y - 84); c.arc(x + 4, y - 84, 50, a0, a1); c.closePath(); c.fill();
+    }
+  }
+  _dc_kincir(c, x, dark) {
+    const y = DECOR_Y + 2;
+    this._dc_shadow(c, x, 36);
+    c.fillStyle = mix('#f5e9d3', '#6a6a86', dark);
+    c.beginPath(); c.moveTo(x - 20, y); c.lineTo(x + 20, y); c.lineTo(x + 11, y - 96); c.lineTo(x - 11, y - 96); c.closePath(); c.fill();
+    c.fillStyle = mix('#c0392b', '#4a2030', dark);
+    c.beginPath(); c.moveTo(x - 17, y - 94); c.lineTo(x, y - 116); c.lineTo(x + 17, y - 94); c.closePath(); c.fill();
+    c.save(); c.translate(x, y - 100); c.rotate(this.t * (this.world?.weather === 'badai' ? 2.4 : 0.9));
+    c.fillStyle = mix('#ffffff', '#8a8aa0', dark);
+    for (let i = 0; i < 4; i++) { c.rotate(Math.PI / 2); c.fillRect(-4, -46, 8, 44); c.fillStyle = mix('#e8d7b8', '#7a7a90', dark); c.fillRect(-14, -46, 10, 30); c.fillStyle = mix('#ffffff', '#8a8aa0', dark); }
+    c.fillStyle = '#6b5b4b'; c.beginPath(); c.arc(0, 0, 5, 0, 7); c.fill();
+    c.restore();
+  }
+  _dc_bangku(c, x, dark) {
+    const y = DECOR_Y + 4;
+    this._dc_shadow(c, x, 50);
+    c.fillStyle = mix('#a8703c', '#3a2a22', dark);
+    c.beginPath(); c.roundRect(x - 44, y - 56, 88, 9, 3); c.fill();
+    c.beginPath(); c.roundRect(x - 44, y - 40, 88, 10, 3); c.fill();
+    c.fillRect(x - 40, y - 30, 7, 30); c.fillRect(x + 33, y - 30, 7, 30);
+    c.fillRect(x - 40, y - 58, 7, 22); c.fillRect(x + 33, y - 58, 7, 22);
+  }
+  _dc_balon(c, x, dark) {
+    const bx = x + Math.sin(this.t * 0.22) * 26, by = 130 + Math.sin(this.t * 0.8) * 9;
+    const cols = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2'];
+    for (let i = 0; i < 4; i++) {
+      c.fillStyle = mix(cols[i], '#3a3a58', dark * 0.6);
+      c.beginPath(); c.ellipse(bx, by, 36 * (1 - i * 0.22), 44, 0, 0, 7); c.fill();
+    }
+    c.fillStyle = 'rgba(255,255,255,.22)'; c.beginPath(); c.ellipse(bx - 12, by - 14, 8, 18, -0.4, 0, 7); c.fill();
+    c.strokeStyle = '#6b5b4b'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(bx - 20, by + 36); c.lineTo(bx - 10, by + 56); c.moveTo(bx + 20, by + 36); c.lineTo(bx + 10, by + 56); c.stroke();
+    c.fillStyle = mix('#a8703c', '#3a2a22', dark); c.beginPath(); c.roundRect(bx - 12, by + 56, 24, 15, 3); c.fill();
+  }
+  _dc_lampu(c, x, dark) {
+    const y = DECOR_Y + 2;
+    this._dc_shadow(c, x, 22);
+    if (dark > 0.15) {
+      const g = c.createRadialGradient(x, y - 84, 4, x, y - 84, 95);
+      g.addColorStop(0, `rgba(255,220,120,${0.65 * dark})`); g.addColorStop(1, 'rgba(255,220,120,0)');
+      c.fillStyle = g; c.fillRect(x - 100, y - 190, 200, 200);
+    }
+    c.fillStyle = '#3a3a4a'; c.beginPath(); c.roundRect(x - 3.5, y - 80, 7, 82, 2); c.fill();
+    c.beginPath(); c.roundRect(x - 11, y - 8, 22, 8, 3); c.fill();
+    c.fillStyle = dark > 0.15 ? '#ffe9a3' : '#f2dca0'; c.beginPath(); c.roundRect(x - 11, y - 102, 22, 26, 6); c.fill();
+    c.fillStyle = '#3a3a4a'; c.beginPath(); c.moveTo(x - 14, y - 102); c.lineTo(x, y - 114); c.lineTo(x + 14, y - 102); c.closePath(); c.fill();
+  }
+  _dc_kotakpos(c, x, dark) {
+    const y = DECOR_Y + 2;
+    this._dc_shadow(c, x, 22);
+    c.fillStyle = mix('#8a5a34', '#3a2a22', dark); c.fillRect(x - 3.5, y - 48, 7, 50);
+    c.fillStyle = mix('#ef476f', '#6a2a3a', dark); c.beginPath(); c.roundRect(x - 21, y - 74, 42, 28, [14, 14, 4, 4]); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(x - 12, y - 60, 24, 3);
+    c.fillStyle = '#ffd166'; c.fillRect(x + 21, y - 70, 4, 16); c.fillRect(x + 21, y - 70, 12, 7);
+  }
+
+  /** Hiasan hari spesial: untaian bendera & ornamen. */
+  _eventDecor(c, dark) {
+    const e = this.world?.event;
+    if (!e) return;
+    const cols = EVENT_COLORS[e.id] || ['#ff6b9d', '#6c7bd9', '#ffd166'];
+    c.save();
+    c.lineWidth = 2; c.strokeStyle = 'rgba(70,60,60,.6)';
+    c.beginPath();
+    for (let x = 0; x <= W; x += 10) { const y = 10 + Math.sin((x / W) * Math.PI) * 24; if (x === 0) c.moveTo(x, y); else c.lineTo(x, y); }
+    c.stroke();
+    for (let x = 14, i = 0; x < W - 10; x += 34, i++) {
+      const y = 10 + Math.sin((x / W) * Math.PI) * 24, sw = Math.sin(this.t * 2 + i) * 1.5;
+      c.fillStyle = mix(cols[i % cols.length], '#444466', dark * 0.5);
+      c.beginPath(); c.moveTo(x - 10, y); c.lineTo(x + 10, y); c.lineTo(x + sw, y + 24); c.closePath(); c.fill();
+    }
+    c.restore();
+    if (e.id === 'kemerdekaan') {
+      for (const px of [22, 880]) {
+        c.strokeStyle = '#8a8a9a'; c.lineWidth = 4; c.beginPath(); c.moveTo(px, 340); c.lineTo(px, 216); c.stroke();
+        for (let i = 0; i < 12; i++) {
+          const fx = px + (px < 100 ? 1 : -1) * (i * 3.6), wave = Math.sin(this.t * 3 + i * 0.5) * 2;
+          c.fillStyle = '#e8203a'; c.fillRect(fx - (px < 100 ? 0 : 3.6), 218 + wave, 3.8, 14);
+          c.fillStyle = '#fff'; c.fillRect(fx - (px < 100 ? 0 : 3.6), 232 + wave, 3.8, 14);
+        }
+      }
+    } else if (['ramadhan', 'idulfitri', 'iduladha', 'tahunbaruislam'].includes(e.id)) {
+      c.font = '34px system-ui'; c.textAlign = 'center'; c.fillStyle = '#000';
+      [W * 0.22, W * 0.5, W * 0.78].forEach((x, i) => {
+        const y = 36 + Math.sin((x / W) * Math.PI) * 24 + 30 + Math.sin(this.t * 1.4 + i) * 3;
+        c.fillText('🏮', x, y);
+        if (dark > 0.2) { const g = c.createRadialGradient(x, y - 10, 2, x, y - 10, 50); g.addColorStop(0, `rgba(255,190,90,${0.5 * dark})`); g.addColorStop(1, 'rgba(255,190,90,0)'); c.fillStyle = g; c.fillRect(x - 50, y - 60, 100, 100); }
+      });
+      c.textAlign = 'start';
+    } else if (e.id === 'natal' || e.id === 'halloween' || e.id === 'ultah' || e.id === 'valentine') {
+      const em = { natal: '🎄', halloween: '🎃', ultah: '🎈', valentine: '💝' }[e.id];
+      c.font = '42px system-ui'; c.textAlign = 'center'; c.fillStyle = '#000';
+      for (const x of [38, 860]) c.fillText(em, x, 372 + (e.id === 'ultah' ? Math.sin(this.t * 1.6 + x) * 8 - 40 : 0));
+      c.textAlign = 'start';
+    }
+  }
+
+  _visitorPos() {
+    const v = this.visitor;
+    if (!v) return null;
+    const t = this.t, x0 = v.x;
+    switch (v.kind) {
+      case 'kupu': return { x: x0 + Math.sin(t * 1.3) * 70, y: 320 + Math.sin(t * 3.1) * 22, flip: Math.cos(t * 1.3) < 0, air: true };
+      case 'burung': return { x: ((x0 + t * 28) % (W + 80)) - 40, y: 250 + Math.sin(t * 2) * 18, flip: false, air: true };
+      case 'kelinci': return { x: x0 + Math.sin(t * 0.45) * 90, y: 418 - Math.abs(Math.sin(t * 4.2)) * 20, flip: Math.cos(t * 0.45) < 0 };
+      case 'kucing': return { x: x0, y: 354 + Math.sin(t * 1.2), flip: false };
+      case 'rubah': return { x: x0 + Math.sin(t * 0.5) * 100, y: 432 - Math.abs(Math.sin(t * 3)) * 4, flip: Math.cos(t * 0.5) < 0 };
+      case 'hantu': return { x: x0, y: 348 + Math.sin(t * 1.6) * 2, flip: false };
+      case 'unicorn': return { x: ((x0 + t * 45) % (W + 100)) - 50, y: 408 - Math.abs(Math.sin(t * 5)) * 14, flip: false };
+      default: return { x: x0, y: 400, flip: false };
+    }
+  }
+
+  _visitorDraw(c) {
+    const pos = this._visitorPos();
+    if (!pos) return;
+    const em = this.visitorEmoji || '🦋';
+    if (!pos.air) { c.fillStyle = 'rgba(0,0,0,.14)'; c.beginPath(); c.ellipse(pos.x, 440, 18, 5, 0, 0, 7); c.fill(); }
+    c.save();
+    c.translate(pos.x, pos.y);
+    if (pos.flip) c.scale(-1, 1);
+    c.font = '40px system-ui, sans-serif'; c.textAlign = 'center';
+    c.fillStyle = '#000'; c.globalAlpha = 1; // emoji ikut alpha warna isi, jadi harus opak
+    c.fillText(em, 0, 0);
+    c.restore();
+    c.textAlign = 'start';
+    this._tag(c, pos.x, pos.y - 46, this.hover === 'visitor' ? `Sapa ${this.visitorLabel || 'tamu'}! 👋` : '👋');
+  }
+
+  _weatherFront(c) {
+    if (this.ambient.length) {
+      for (const q of this.ambient) {
+        if (q.kind === 'rain') {
+          c.strokeStyle = 'rgba(195,218,255,.5)'; c.lineWidth = 1.3;
+          c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x + q.vx * 0.022, q.y + q.len); c.stroke();
+        } else if (q.kind === 'sakura') {
+          c.fillStyle = CONFETTI_PETAL[q.c]; c.beginPath(); c.ellipse(q.x, q.y, q.r * 1.5, q.r, q.ph + this.t, 0, 7); c.fill();
+        } else if (q.kind === 'gugur') {
+          c.fillStyle = ['#e5703a', '#f2a33a', '#c9552a'][q.c]; c.beginPath(); c.ellipse(q.x, q.y, q.r * 1.8, q.r * 0.9, q.ph + this.t * 1.5, 0, 7); c.fill();
+        } else {
+          c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(q.x, q.y, q.r * 0.8, 0, 7); c.fill();
+        }
+      }
+    }
+    if (this.flash > 0.05 && this.bolt) {
+      let x = this.bolt.x, y = 0, seed = this.bolt.seed * 1000;
+      const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      c.strokeStyle = `rgba(255,255,255,${this.flash})`; c.lineWidth = 3.5; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(x, y);
+      while (y < HORIZON) { y += 26 + rnd() * 18; x += (rnd() - 0.5) * 46; c.lineTo(x, y); }
+      c.stroke();
     }
   }
 
@@ -449,7 +848,7 @@ export class Scene {
       this[`_draw_${key}`](c, s, st);
       c.restore();
       if (st.locked) this._tag(c, s.x, s.y - 70, `🔒 Lv ${st.unlock}`);
-      else if (st.cooldown > 0) this._tag(c, s.x, s.y - 70, `⏳ ${Math.ceil(st.cooldown / 1000)}d`);
+      else if (st.cooldown > 0) { const sec = Math.ceil(st.cooldown / 1000); this._tag(c, s.x, s.y - 70, `⏳ ${sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` : `${sec}d`}`); }
       else if (hot) this._tag(c, s.x, s.y - 70, s.label);
     }
   }
@@ -683,7 +1082,8 @@ export class Scene {
     const act = this.activity?.arrived ? this.activity : null;
     let lift = 0, rot = 0, px = this.x, py = this.y, sit = false, sqx = 1, sqy = 1, flip = 0, shadowY = this.y + 2;
     const kk = act ? this.t - act.start : 0;
-    if (this.walking) lift = Math.abs(Math.sin(this.t * 11)) * 9;
+    if (this.walking && this.curl < 0.45) lift = Math.abs(Math.sin(this.t * 11)) * 9;
+    if (this.curl >= 0.45 && this.t < this.spinUntil) lift = Math.abs(Math.sin(this.t * 9)) * 6;
     if (act) {
       const k = this.t - act.start;
       const blend = Math.min(1, k / 0.5, Math.max(0, (act.until - this.t) / 0.4));
@@ -720,6 +1120,12 @@ export class Scene {
         this._pondWL = { x: px, y: py - 18 * sc, blend };
       }
     }
+    if (this.training) {
+      const tr = this.training, k = this.t - tr.start;
+      if (tr.kind === 'lari') { lift = Math.abs(Math.sin(k * 14)) * 9; rot = 0.1 * this.facing; }
+      else if (tr.kind === 'tangguh') { sqy = 0.9 + 0.1 * Math.sin(k * 5); sqx = 2 - sqy; }
+      else rot = Math.sin(k * 3) * 0.03;
+    }
     if (this.eating && this.t - this.eating.start > 0.5) { lift += Math.abs(Math.sin(this.t * 9)) * 4; rot = Math.sin(this.t * 9) * 0.05; }
     if (this.bathing) { rot = Math.sin(this.t * 7) * 0.09; px += Math.sin(this.t * 7) * 3; }
     if (!sit || act?.kind === 'swing') this._shadow(c, px, shadowY, 38 * this._stageScale(p) * (1 - Math.min(lift, 140) / 260));
@@ -732,6 +1138,7 @@ export class Scene {
     else { this._creature(c, p); if (act) this._playArms(c, p, act, kk); }
     c.restore();
     this._pondFront(c);
+    this._trainProps(c, px, py, p);
     if (act?.kind === 'swing') this._swingHands(c);
     if (act?.kind === 'sandbox') this._shovelDraw(c, this.t - act.start);
     this._food(c, px, py);
@@ -764,6 +1171,44 @@ export class Scene {
     }
   }
 
+  _trainProps(c, px, py, p) {
+    const tr = this.training;
+    if (!tr || p.stage === 'egg') return;
+    const k = this.t - tr.start, sc = this._stageScale(p);
+    if (tr.kind === 'pintar') {
+      c.save(); c.translate(px, py - 22 * sc);
+      c.fillStyle = '#3f7fd6'; c.beginPath(); c.roundRect(-30, -2, 60, 22, 3); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(0, 0); c.lineTo(-27, -4); c.lineTo(-27, 16); c.lineTo(0, 18); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(27, -4); c.lineTo(27, 16); c.lineTo(0, 18); c.closePath(); c.fill();
+      c.strokeStyle = '#b8c2e0'; c.lineWidth = 1.4;
+      for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(-22, 3 + i * 4.5); c.lineTo(-5, 4 + i * 4.5); c.moveTo(5, 4 + i * 4.5); c.lineTo(22, 3 + i * 4.5); c.stroke(); }
+      c.restore();
+      if (k > 1.2) { c.font = '30px system-ui'; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText('💡', px + 38 * sc, py - 118 * sc - Math.sin(k * 4) * 3); c.textAlign = 'start'; }
+    } else if (tr.kind === 'tangguh') {
+      const lift = (0.5 + 0.5 * Math.sin(k * 5)) * 24, hy = py - 98 * sc - lift;
+      c.strokeStyle = '#3a3a4a'; c.lineWidth = 5; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(px - 38 * sc, hy); c.lineTo(px + 38 * sc, hy); c.stroke();
+      c.fillStyle = '#4a4a5e';
+      for (const d of [-1, 1]) { c.beginPath(); c.roundRect(px + d * 38 * sc - 7, hy - 15, 14, 30, 4); c.fill(); c.fillStyle = '#6a6a80'; c.beginPath(); c.roundRect(px + d * (38 * sc + 12) - 4, hy - 10, 8, 20, 3); c.fill(); c.fillStyle = '#4a4a5e'; }
+      c.strokeStyle = palOf(p).body; c.lineWidth = 6 * sc + 1;
+      for (const d of [-1, 1]) { c.beginPath(); c.moveTo(px + d * 40 * sc, py - 40 * sc); c.lineTo(px + d * 34 * sc, hy + 4); c.stroke(); }
+    } else if (tr.kind === 'lari') {
+      c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 3; c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) { const y = py - 20 * sc - i * 16 * sc; c.beginPath(); c.moveTo(px - this.facing * 52 * sc, y); c.lineTo(px - this.facing * (80 + i * 8) * sc, y); c.stroke(); }
+    }
+  }
+
+  /** Penanda usia lanjut: alis putih & tongkat. */
+  _elder(c, p) {
+    if (p.stage !== 'elder') return;
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,.88)';
+    for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * 17, -66, 10, 3.6, d * 0.3, 0, 7); c.fill(); }
+    c.strokeStyle = '#8a5a34'; c.lineWidth = 4.5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(54, -4); c.lineTo(54, -40); c.arc(60, -40, 6, Math.PI, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
   /** Lengan: terangkat saat melompat di trampolin, memercik air di kolam. */
   _playArms(c, p, act, k) {
     const sc = this._stageScale(p);
@@ -775,7 +1220,7 @@ export class Scene {
       hands = [-1, 1].map((d, i) => [d * 50 * sc, (-34 - Math.max(0, Math.sin(k * 8 + i * Math.PI)) * 28) * sc]);
     }
     if (!hands) return;
-    const col = p.sick ? '#9dc070' : PALETTES[p.species].body;
+    const col = p.sick ? '#9dc070' : palOf(p).body;
     c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 6 * sc + 1; c.lineCap = 'round';
     for (const [x, y] of hands) {
       c.beginPath(); c.moveTo(Math.sign(x) * 38 * sc, -36 * sc); c.lineTo(x, y); c.stroke();
@@ -786,7 +1231,7 @@ export class Scene {
   _swingHands(c) {
     const sp = SPOTS.swing, a = this._swingAngle(), sc = this._stageScale(this.pet);
     const cos = Math.cos(a), sin = Math.sin(a);
-    c.fillStyle = this.pet.sick ? '#9dc070' : PALETTES[this.pet.species].body;
+    c.fillStyle = this.pet.sick ? '#9dc070' : palOf(this.pet).body;
     for (const d of [-1, 1]) {
       const lx = d * 34, ly = SWING_L - 34 * sc;
       c.beginPath(); c.arc(sp.x + lx * cos - ly * sin, sp.y - 130 + lx * sin + ly * cos, 6.5, 0, 7); c.fill();
@@ -805,7 +1250,7 @@ export class Scene {
       c.fillStyle = '#e4c27f';
       c.beginPath(); c.ellipse(sv.tx - Math.cos(sv.th) * 1, sv.ty - 3, 7, 3.5, 0, 0, 7); c.fill();
     }
-    c.fillStyle = this.pet.sick ? '#9dc070' : PALETTES[this.pet.species].body;
+    c.fillStyle = this.pet.sick ? '#9dc070' : palOf(this.pet).body;
     c.beginPath(); c.arc(sv.hx, sv.hy, 6.5, 0, 7); c.fill();
     c.restore();
   }
@@ -825,7 +1270,7 @@ export class Scene {
     const fx = px + (held ? 0 : Math.sin(k * 10) * 4);
     const fy = held ? mouthY + 14 * s - bob : lerp(py - 170, mouthY + 14 * s, fall * fall);
     if (held) {
-      c.fillStyle = this.pet.sick ? '#9dc070' : PALETTES[this.pet.species].body;
+      c.fillStyle = this.pet.sick ? '#9dc070' : palOf(this.pet).body;
       for (const d of [-1, 1]) { c.beginPath(); c.ellipse(fx + d * (size * 0.5 + 4), fy + 6, 9 * s + 3, 6 * s + 3, d * 0.5, 0, 7); c.fill(); }
     }
     c.font = `${size}px system-ui, sans-serif`;
@@ -874,11 +1319,11 @@ export class Scene {
   }
 
   _stageScale(p) {
-    return { egg: 1, baby: 0.62, child: 0.8, teen: 0.95, adult: 1.1 }[p.stage] || 1;
+    return { egg: 1, baby: 0.62, child: 0.8, teen: 0.95, adult: 1.1, elder: 1.04 }[p.stage] || 1;
   }
 
   _egg(c, p) {
-    const pal = PALETTES[p.species];
+    const pal = PALETTES[p.species] || PALETTES.mochi;
     const wob = Math.sin(this.t * 3) * 0.08 * (1 + Math.sin(this.t * 0.7));
     c.rotate(wob);
     c.fillStyle = '#fff6e5';
@@ -897,7 +1342,7 @@ export class Scene {
   }
 
   _creature(c, p) {
-    const pal = PALETTES[p.species];
+    const pal = palOf(p);
     const s = this._stageScale(p);
     const mood = moodOf(p);
     const breathe = Math.sin(this.t * (p.sleeping ? 1.4 : 3)) * 0.03;
@@ -915,8 +1360,9 @@ export class Scene {
       }
     }
 
+    if (p.species === 'trenggiling' && this.curl > 0.45) { this._pangolinBall(c, p, s); return; }
     c.save();
-    c.scale(sx, sy);
+    c.scale(sx * (1 + this.curl * 0.25), sy * (1 - this.curl * 0.45));
     const tint = p.sick ? '#b9d98a' : pal.body;
 
     // telinga / aksesori belakang
@@ -929,6 +1375,21 @@ export class Scene {
       for (const d of [-1, 1]) { c.beginPath(); c.arc(d * 36, -78, 17, 0, 7); c.fill(); }
       c.fillStyle = pal.light;
       for (const d of [-1, 1]) { c.beginPath(); c.arc(d * 36, -78, 9, 0, 7); c.fill(); }
+    }
+    if (p.species === 'babi') { // ekor keriting & telinga lipat
+      c.strokeStyle = pal.dark; c.lineWidth = 4;
+      c.beginPath(); c.arc(52, -34, 7, 0.3, Math.PI * 1.55); c.stroke();
+      for (const d of [-1, 1]) {
+        c.fillStyle = pal.dark; c.beginPath(); c.moveTo(d * 14, -80); c.lineTo(d * 46, -98); c.lineTo(d * 48, -66); c.closePath(); c.fill();
+        c.fillStyle = pal.body; c.beginPath(); c.moveTo(d * 20, -79); c.lineTo(d * 41, -91); c.lineTo(d * 42, -71); c.closePath(); c.fill();
+      }
+    } else if (p.species === 'trenggiling') { // ekor panjang bersisik & telinga kecil
+      c.strokeStyle = pal.dark; c.lineWidth = 13; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(40, -14); c.quadraticCurveTo(82, -6, 90, -34); c.stroke();
+      c.strokeStyle = pal.body; c.lineWidth = 8;
+      c.beginPath(); c.moveTo(42, -15); c.quadraticCurveTo(80, -8, 87, -33); c.stroke();
+      c.fillStyle = pal.dark;
+      for (const d of [-1, 1]) { c.beginPath(); c.arc(d * 34, -78, 9, 0, 7); c.fill(); }
     }
     // kaki
     c.fillStyle = p.sick ? '#9dc070' : pal.dark;
@@ -943,6 +1404,27 @@ export class Scene {
     c.fillStyle = 'rgba(255,255,255,.35)';
     c.beginPath(); c.ellipse(0, -28, 28, 22, 0, 0, 7); c.fill();
 
+    if (p.species === 'babi') { // moncong
+      c.fillStyle = '#ffa3a8'; c.beginPath(); c.ellipse(0, -34, 17, 11.5, 0, 0, 7); c.fill();
+      c.fillStyle = '#e8737e';
+      for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * 6, -34, 2.8, 4.2, 0, 0, 7); c.fill(); }
+    } else if (p.species === 'trenggiling') { // sisik di punggung & moncong lancip
+      c.save();
+      c.beginPath(); c.ellipse(0, -42, 48, 42, 0, 0, 7); c.clip();
+      c.lineWidth = 1.7;
+      for (let r = 0; r < 9; r++) {
+        const y = -84 + r * 10.5;
+        for (let x = -56 + (r % 2) * 8; x < 58; x += 16) {
+          const dx = x / 31, dy = (y + 34) / 27;
+          if (dx * dx + dy * dy < 1) continue; // wajah dibiarkan polos
+          c.fillStyle = r % 2 ? pal.body : '#d8b58d'; c.strokeStyle = pal.dark;
+          c.beginPath(); c.arc(x, y, 9.5, 0, Math.PI); c.fill(); c.stroke();
+        }
+      }
+      c.restore();
+      c.fillStyle = pal.light; c.beginPath(); c.ellipse(0, -34, 12, 9, 0, 0, 7); c.fill();
+      c.fillStyle = pal.accent; c.beginPath(); c.ellipse(0, -38, 4.2, 3, 0, 0, 7); c.fill();
+    }
     const eq = p.equipped || {};
     if (p.species === 'leafy' && !eq.head) {
       c.fillStyle = '#3fae56';
@@ -959,7 +1441,37 @@ export class Scene {
 
     this._face(c, p, mood, pal);
     this._wear(c, p);
+    this._elder(c, p);
     c.restore();
+  }
+
+  /** Trenggiling menggulung: bola bersisik yang berputar. */
+  _pangolinBall(c, p, s) {
+    const pal = palOf(p);
+    const R = 38 * s * (0.62 + 0.38 * Math.min(1, (this.curl - 0.45) / 0.55));
+    c.save();
+    c.translate(0, -R);
+    c.rotate(this.rollAngle);
+    c.fillStyle = p.sick ? '#b9d98a' : pal.body;
+    c.beginPath(); c.arc(0, 0, R, 0, 7); c.fill();
+    c.save();
+    c.beginPath(); c.arc(0, 0, R, 0, 7); c.clip();
+    c.lineWidth = 1.6; c.strokeStyle = pal.dark;
+    const step = R / 3.3;
+    for (let r = -4, i = 0; r <= 4; r++, i++) {
+      const y = r * step * 0.9;
+      for (let x = -R - 10 + (i % 2) * (step * 0.9); x < R + 10; x += step * 1.8) {
+        c.fillStyle = i % 2 ? pal.body : '#d8b58d';
+        c.beginPath(); c.arc(x, y, step * 0.95, 0, Math.PI); c.fill(); c.stroke();
+      }
+    }
+    c.restore();
+    c.strokeStyle = pal.dark; c.lineWidth = 2.2; // lingkar ekor yang melilit
+    c.beginPath(); c.arc(0, 0, R * 0.62, 0.4, 2.5); c.stroke();
+    c.fillStyle = pal.accent; c.beginPath(); c.ellipse(R * 0.62, R * 0.18, 5 * s + 1, 3.6 * s + 1, 0.5, 0, 7); c.fill(); // ujung moncong
+    c.restore();
+    c.fillStyle = 'rgba(255,255,255,.28)'; // kilau diam (tidak ikut berputar)
+    c.beginPath(); c.ellipse(-R * 0.35, -R * 1.35, R * 0.28, R * 0.16, -0.5, 0, 7); c.fill();
   }
 
   /** Aksesori dari toko, digambar di koordinat badan (kaki di y=0, kepala di y≈-84). */
@@ -1034,6 +1546,7 @@ export class Scene {
   }
 
   _face(c, p, mood, pal) {
+    if (mood === 'thirsty') mood = 'hungry'; // ekspresi serupa (mulut terbuka)
     const arrived = this.activity?.arrived;
     if (this.bathing || arrived) mood = 'happy';
     const ey = -50 + (arrived && this.activity.kind === 'sandbox' ? 4 : 0); // menunduk melihat pasir
@@ -1066,7 +1579,7 @@ export class Scene {
       }
     }
     // mulut
-    const my = -30;
+    const my = p.species === 'babi' ? -19 : p.species === 'trenggiling' ? -23 : -30;
     c.lineWidth = 3.2;
     c.beginPath();
     if (this.eating && this.t - this.eating.start > 0.4) { c.ellipse(0, my + 2, 7, 3 + Math.abs(Math.sin(this.t * 9)) * 7, 0, 0, 7); c.fillStyle = '#7a2d4b'; c.fill(); }

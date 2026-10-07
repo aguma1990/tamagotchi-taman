@@ -81,26 +81,8 @@ export function createLocalApi({ storage = defaultStorage(), clock = Date.now } 
   };
   tick(); // catch-up setelah aplikasi lama ditutup
 
-  const config = {
-    foods: engine.FOODS,
-    playground: engine.PLAYGROUND,
-    species: engine.SPECIES,
-    medicineCost: engine.MEDICINE_COST,
-    stageStarts: engine.CONFIG.stageStarts,
-    cosmetics: engine.COSMETICS,
-    quests: engine.QUESTS,
-    questBonus: engine.QUEST_BONUS,
-    achievements: engine.ACHIEVEMENTS.map(({ test, ...a }) => a),
-    dayRealMinutes: engine.CONFIG.dayRealMinutes,
-    dayStartHour: engine.CONFIG.dayStartHour,
-  };
-  const snapshot = () => structuredClone({
-    created: !!state,
-    now: clock(),
-    pet: state,
-    streak: state ? engine.effectiveStreak(state, clock()) : 0,
-    config,
-  });
+  const config = engine.buildConfig();
+  const snapshot = () => structuredClone({ created: !!state, now: clock(), pet: state, ...engine.viewExtras(state, clock()), config });
   const fail = (message) => { throw Object.assign(new Error(message), { data: { error: message } }); };
   const obj = (b) => (b && typeof b === 'object' ? b : {});
   const num = (v, def, lo, hi) => Math.min(hi, Math.max(lo, Number(v) || def));

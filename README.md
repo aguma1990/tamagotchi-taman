@@ -69,6 +69,29 @@ punya gaya bicara tiap jenis, dan peliharaan **mengingat namamu** — ketik `nam
 koin, atau ajak main. Berjalan 100% lokal (tanpa internet/AI luar). Riwayat obrolan tersimpan di `data/chat.jsonl`.
 Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghitung untuk misi/prestasi.
 
+## Fitur utama
+
+- **5 jenis peliharaan** (Mochi, Bubu, Leafy, Babi, Trenggiling — yang bisa menggulung & berputar) dengan **warna langka ✨ (8%)**.
+- **Siklus hidup:** Telur → Bayi → Anak → Remaja (terbentuk *watak*) → Dewasa → **Lansia** → **pensiun** ke Galeri Keluarga dan mewariskan
+  **telur generasi berikutnya** (mewarisi setengah keterampilan; data akun seperti koin, aksesori, album tetap).
+- **Kebutuhan:** kenyang, haus, senang, energi, bersih, sehat. Peliharaan bicara sendiri saat lapar/haus/ngantuk. Punya **makanan favorit & tidak suka**.
+- **Taman bermain** 5 wahana + **4 mini-game** (Tangkap Bintang, Pasangan Memori, Tangkap Makanan, Irama Ketuk) dengan rekor & bonus.
+- **Dunia yang hidup:** jam taman sendiri, **cuaca** (cerah, berawan, hujan + genangan, badai + petir, pelangi), **tamu taman** (kupu-kupu, kelinci,
+  rubah, burung hantu malam, unicorn…), **hari spesial** (ulang tahun mingguan, Tahun Baru, Kemerdekaan, Natal, Halloween, Ramadhan, Idul Fitri…).
+- **Koleksi:** album 16 stiker dengan hadiah milestone, kotak keberuntungan harian, tantangan mingguan, 25 prestasi.
+- **Toko:** aksesori, **dekorasi taman** (10) dan **tema** (Sakura, Musim Gugur, Salju).
+- **Latihan:** keterampilan Lari / Pintar / Tangguh (level 1–10) yang memberi keuntungan nyata.
+- **Obrolan** lokal yang mengingat namamu, sesuai suasana hati, cuaca, dan kebiasaan.
+- **Kartu peliharaan** PNG untuk dibagikan, musik latar generatif, efek suara, getar di HP.
+
+## Karakter & kebutuhan
+
+Lima jenis peliharaan: **Mochi** (kucing), **Bubu** (beruang), **Leafy** (tunas), **Babi** 🐷, dan **Trenggiling** 🌰 —
+trenggiling bisa **menggulung jadi bola**: ia berguling saat berpindah tempat, main bola, dan berputar di tempat saat diketuk/dipeluk.
+
+Status: kenyang, **haus** 💧, senang, energi, bersih, sehat. Saat lapar, haus, atau ngantuk peliharaan **bicara sendiri**
+lewat gelembung ucapan (diulang tiap ±45 detik selama masih butuh). Air putih gratis; susu & jus juga menghilangkan haus.
+
 ## Cara bermain
 
 - **Taman bermain:** ketuk wahana untuk mengajak bermain (dapat 🪙 koin & XP). Wahana baru terbuka seiring level:
@@ -81,6 +104,7 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 ## Arsitektur
 
 ```
+src/content.js  tabel data (dekorasi, stiker, tamu, acara…)
 src/engine.js   logika game murni & deterministik (tanpa I/O) — mudah dites
 src/store.js    penyimpanan atomik, backup, pemulihan, log JSONL
 src/game.js     menggabungkan engine + store, pemilik state
@@ -95,6 +119,6 @@ Praktik yang diterapkan: nol dependensi, bind hanya ke localhost, validasi Host/
 validasi semua aksi di server (klien tidak dipercaya), shutdown yang rapi, `prefers-reduced-motion`.
 
 ```bash
-npm test      # 42 tes (termasuk simulasi ditutup lalu dibuka, ekspor/impor): engine, catch-up offline, persistensi, pemulihan backup
+npm test      # 74 tes (engine, dunia & generasi, persistensi, versi web): engine, catch-up offline, persistensi, pemulihan backup
 PORT=4000 npm start   # ganti port (opsional)
 ```
