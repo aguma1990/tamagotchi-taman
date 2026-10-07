@@ -44,11 +44,11 @@ const FOODS = Object.freeze({
 });
 
 const PLAYGROUND = Object.freeze({
-  swing: { label: 'Ayunan', unlock: 1, energy: 6, happiness: 10, hunger: 2, hygiene: 0, coins: 1, xp: 4, cooldown: 60 },
-  ball: { label: 'Bola', unlock: 1, energy: 8, happiness: 12, hunger: 3, hygiene: -2, coins: 1, xp: 4, cooldown: 60 },
-  sandbox: { label: 'Kotak Pasir', unlock: 2, energy: 8, happiness: 12, hunger: 3, hygiene: -12, coins: 2, xp: 6, cooldown: 90 },
-  pond: { label: 'Kolam', unlock: 3, energy: 10, happiness: 16, hunger: 4, hygiene: 8, coins: 2, xp: 8, cooldown: 120 },
-  trampoline: { label: 'Trampolin', unlock: 5, energy: 14, happiness: 20, hunger: 6, hygiene: 0, coins: 4, xp: 12, cooldown: 120 },
+  swing: { label: 'Ayunan', unlock: 1, energy: 6, happiness: 10, hunger: 2, hygiene: 0, coins: 1, xp: 4, cooldown: C.PLAY_COOLDOWN },
+  ball: { label: 'Bola', unlock: 1, energy: 8, happiness: 12, hunger: 3, hygiene: -2, coins: 1, xp: 4, cooldown: C.PLAY_COOLDOWN },
+  sandbox: { label: 'Kotak Pasir', unlock: 2, energy: 8, happiness: 12, hunger: 3, hygiene: -12, coins: 2, xp: 6, cooldown: C.PLAY_COOLDOWN },
+  pond: { label: 'Kolam', unlock: 3, energy: 10, happiness: 16, hunger: 4, hygiene: 8, coins: 2, xp: 8, cooldown: C.PLAY_COOLDOWN },
+  trampoline: { label: 'Trampolin', unlock: 5, energy: 14, happiness: 20, hunger: 6, hygiene: 0, coins: 4, xp: 12, cooldown: C.PLAY_COOLDOWN },
 });
 
 const COSMETICS = Object.freeze({
@@ -95,6 +95,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'fashion', icon: '🎩', label: 'Fashionista', desc: 'Miliki 3 aksesori', reward: 20, test: (s) => s.inventory.length >= 3 },
   { id: 'decor5', icon: '🌷', label: 'Tukang Taman', desc: 'Miliki 5 dekorasi taman', reward: 25, test: (s) => s.decor.owned.length >= 5 },
   { id: 'skill5', icon: '🏃', label: 'Atlet', desc: 'Capai level 5 di salah satu keterampilan', reward: 25, test: (s) => Object.values(s.skills).some((k) => k.lv >= 5) },
+  { id: 'morph3', icon: '🎭', label: 'Si Bunglon', desc: 'Ganti karakter 3 kali', reward: 15, test: (s) => s.totals.morphs >= 3 },
   { id: 'album8', icon: '📖', label: 'Kolektor', desc: 'Kumpulkan 8 stiker berbeda', reward: 30, test: (s) => Object.keys(s.album).length >= 8 },
   { id: 'shiny', icon: '✨', label: 'Langka!', desc: 'Menetaskan peliharaan warna langka', reward: 60, test: (s) => s.shiny && s.stage !== 'egg' },
   { id: 'adult', icon: '🌱', label: 'Dewasa', desc: 'Tumbuh dewasa', reward: 50, test: (s) => s.stage === 'adult' || s.stage === 'elder' },
@@ -279,7 +280,7 @@ function migrate(s, now) {
   s.treasure ??= null;
   s.owner ??= '';
   s.stats.thirst ??= 80;
-  for (const k of ['treasures', 'quests', 'chats', 'visitors', 'trains', 'lucky', 'weeklies']) s.totals[k] ??= 0;
+  for (const k of ['treasures', 'quests', 'chats', 'visitors', 'trains', 'lucky', 'weeklies', 'morphs']) s.totals[k] ??= 0;
   s.generation ??= 1;
   s.family ??= [];
   s.shiny ??= false;
@@ -758,7 +759,7 @@ function doAction(s, now, a, events, out = {}) {
       const left = cooldownLeft(s, 'minigame', now);
       if (left) return waitMsg(left);
       const sc = Math.min(score, C.MINIGAME_MAX);
-      setCooldown(s, 'minigame', now, 120);
+      setCooldown(s, 'minigame', now, C.PLAY_COOLDOWN);
       applyEffect(s, { energy: -10, happiness: Math.min(25, sc), hunger: -4, thirst: -3 });
       s.coins += Math.min(12, Math.floor(sc / 2));
       s.totals.minigames += 1;
@@ -920,6 +921,23 @@ function doAction(s, now, a, events, out = {}) {
     }
     case 'retire':
       return retire(s, now, a, events);
+    case 'morph': {
+      // ganti jenis karakter (penampilan & gaya bicara) tanpa kehilangan umur, level, status, atau keterampilan
+      const species = a.species === undefined ? s.species : a.species;
+      if (!SPECIES.includes(species)) return 'Spesies tidak dikenal.';
+      const name = a.name === undefined ? s.name : cleanName(a.name);
+      if (!name) return 'Nama tidak boleh kosong.';
+      const changed = species !== s.species;
+      if (!changed && name === s.name) return 'Tidak ada yang berubah.';
+      if (changed && s.coins < C.MORPH_COST) return `Butuh ${C.MORPH_COST} koin untuk ganti karakter.`;
+      const old = s.species, oldName = s.name;
+      if (changed) { s.coins -= C.MORPH_COST; s.species = species; s.totals.morphs += 1; }
+      s.name = name;
+      const cap = (x) => x[0].toUpperCase() + x.slice(1);
+      if (changed) events.push(ev(now, 'morph', `🎭 ${oldName} berubah menjadi ${name !== oldName ? `${name} si ` : ''}${cap(species)}! (sebelumnya ${cap(old)})`));
+      else events.push(ev(now, 'morph', `✏️ ${oldName} sekarang bernama ${name}.`));
+      return null;
+    }
     case 'buy': {
       const it = own(COSMETICS, a.item);
       if (!it) return 'Barang tidak dikenal.';
@@ -1029,6 +1047,8 @@ function buildConfig() {
     weeklyGoal: CONFIG.weeklyGoal,
     weeklyReward: CONFIG.weeklyReward,
     shinyChance: CONFIG.shinyChance,
+    minigameCooldown: C.PLAY_COOLDOWN,
+    morphCost: C.MORPH_COST,
   };
 }
 

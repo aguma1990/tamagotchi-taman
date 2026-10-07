@@ -52,7 +52,7 @@ Semua proses (lapar, kantuk, pertumbuhan) berjalan 2× lebih cepat dari jam nyat
 | Sumber | Koin |
 |---|---|
 | 🎪 Main di wahana taman | 1–4 per main (ada cooldown) |
-| ⭐ Tangkap Bintang | sampai 12 per 2 menit |
+| ⭐ Tangkap Bintang | sampai 12 per 30 detik |
 | 💰 Harta karun di taman (muncul ±tiap 25 menit, ketuk) | 3–8 |
 | 🎁 Hadiah harian + streak hari beruntun | 7–19 |
 | 📋 Misi harian (3 misi/hari, ganti tiap tengah malam) | 4–12 per misi + bonus 10 bila semua selesai |
@@ -75,7 +75,8 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 - **Siklus hidup:** Telur → Bayi → Anak → Remaja (terbentuk *watak*) → Dewasa → **Lansia** → **pensiun** ke Galeri Keluarga dan mewariskan
   **telur generasi berikutnya** (mewarisi setengah keterampilan; data akun seperti koin, aksesori, album tetap).
 - **Kebutuhan:** kenyang, haus, senang, energi, bersih, sehat. Peliharaan bicara sendiri saat lapar/haus/ngantuk. Punya **makanan favorit & tidak suka**.
-- **Taman bermain** 5 wahana + **4 mini-game** (Tangkap Bintang, Pasangan Memori, Tangkap Makanan, Irama Ketuk) dengan rekor & bonus.
+- **Ganti karakter** kapan saja (🪙 15; ganti nama gratis): jenis dan gaya bicara berubah, umur/level/status/keterampilan tetap.
+- **Taman bermain** 5 wahana + **4 mini-game** (jeda main 30 detik) (Tangkap Bintang, Pasangan Memori, Tangkap Makanan, Irama Ketuk) dengan rekor & bonus.
 - **Dunia yang hidup:** jam taman sendiri, **cuaca** (cerah, berawan, hujan + genangan, badai + petir, pelangi), **tamu taman** (kupu-kupu, kelinci,
   rubah, burung hantu malam, unicorn…), **hari spesial** (ulang tahun mingguan, Tahun Baru, Kemerdekaan, Natal, Halloween, Ramadhan, Idul Fitri…).
 - **Koleksi:** album 16 stiker dengan hadiah milestone, kotak keberuntungan harian, tantangan mingguan, 25 prestasi.

@@ -162,6 +162,7 @@ export class Scene {
     this.pet = pet;
     if (pet && prev && prev.stage === 'egg' && pet.stage !== 'egg') this.burst(this.x, this.y - 50, 'spark', 24);
     if (pet && prev && prev.stage !== pet.stage && prev.stage !== 'egg') this.burst(this.x, this.y - 60, 'spark', 30);
+    if (pet && prev && prev.species !== pet.species && pet.stage !== 'egg') { this.burst(this.x, this.y - 60, 'spark', 28); this.rollMode = false; this.curl = 0; this.training = null; }
     if (pet?.sleeping && !prev?.sleeping) this.activity = null;
   }
 

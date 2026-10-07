@@ -50,6 +50,7 @@
           </div>
           <div class="xp" role="progressbar" aria-label="Pengalaman" id="xpBar"><i id="xpFill"></i></div>
           <p class="xp-label" id="xpLabel"></p>
+          <button class="morph-btn" id="morphBtn" type="button" title="Ubah jenis karakter atau nama — kemajuan tetap">🎭 Ganti karakter</button>
         </section>
 
         <section class="card stats" aria-label="Status">
@@ -183,7 +184,7 @@
   <div class="modal" id="picker" hidden>
     <div class="dialog">
       <h2>Pilih mini-game 🎮</h2>
-      <p class="sub">Semua memberi koin & XP. Jeda 2 menit di antara permainan. Pecahkan rekor untuk bonus!</p>
+      <p class="sub" id="pickerSub">Semua memberi koin & XP. Pecahkan rekor untuk bonus!</p>
       <div id="pickerList" class="picker"></div>
       <button class="ghost" id="pickerCancel" type="button">Tutup</button>
     </div>
@@ -197,6 +198,21 @@
       <canvas id="gameCanvas"></canvas>
       <button class="ghost" id="gameCancel">Batal</button>
     </div>
+  </div>
+
+  <!-- Ganti karakter -->
+  <div class="modal" id="morph" hidden>
+    <form class="dialog" id="morphForm" autocomplete="off">
+      <h2>Ganti karakter 🎭</h2>
+      <p class="sub" id="morphSub"></p>
+      <div class="species" id="morphSpecies" role="radiogroup" aria-label="Jenis karakter"></div>
+      <label class="field">Nama
+        <input name="name" maxlength="16" required>
+      </label>
+      <p class="error" id="morphError" role="alert"></p>
+      <button class="primary" type="submit" id="morphSubmit">Terapkan</button>
+      <button class="ghost" id="morphCancel" type="button">Batal</button>
+    </form>
   </div>
 
   <!-- Pensiun & telur baru -->

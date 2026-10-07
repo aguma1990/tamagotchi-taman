@@ -71,6 +71,8 @@ const MINIGAMES = Object.freeze({
   rhythm: { label: 'Irama Ketuk', icon: '🎵', desc: 'Ketuk jalur saat not menyentuh garis.' },
 });
 const MINIGAME_MAX = 60;
+const PLAY_COOLDOWN = 30; // detik: jeda main wahana & mini-game
+const MORPH_COST = 15; // koin untuk mengganti jenis karakter (ganti nama gratis)
 const RECORD_BONUS = 3;
 
 // ---------- Keterampilan ----------
@@ -159,7 +161,7 @@ function hash01(str) {
 }
 
 module.exports = {
-  DECOR, THEMES, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS,
+  DECOR, THEMES, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
   SKILLS, SKILL_MAX, TRAIN, skillNeed, TRAITS, PREF_FOODS, WEATHERS, WEATHER_SLOT_MS, HOLIDAYS,
   hijri, holidayOn, weekKey, hash01,
 };

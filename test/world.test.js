@@ -429,3 +429,81 @@ test('migrasi: peliharaan lama yang sudah remaja mendapat watak', () => {
   engine.migrate(s, s.lastTickAt);
   assert.equal(s.trait, 'seimbang');
 });
+
+// ---------- ganti karakter & jeda 30 detik ----------
+test('jeda main: semua wahana & mini-game 30 detik', () => {
+  for (const [id, ride] of Object.entries(engine.PLAYGROUND)) assert.equal(ride.cooldown, 30, id);
+  assert.equal(C.PLAY_COOLDOWN, 30);
+  for (const item of Object.keys(engine.PLAYGROUND)) {
+    const s = pet({ level: 5 });
+    s.stats.energy = 100;
+    const t = s.lastTickAt;
+    assert.ok(engine.perform(s, t, { type: 'play', item }).ok, item);
+    const early = engine.perform(s, t + 29000, { type: 'play', item });
+    assert.equal(early.ok, false, `${item} @29 dtk`);
+    assert.match(early.error, /Tunggu 1 detik/);
+    assert.ok(engine.perform(s, t + 30000, { type: 'play', item }).ok, `${item} @30 dtk`);
+  }
+  const s = pet();
+  s.stats.energy = 100;
+  const t = s.lastTickAt;
+  assert.ok(engine.perform(s, t, { type: 'minigame', game: 'food', score: 20 }).ok);
+  assert.equal(engine.perform(s, t + 29000, { type: 'minigame', game: 'rhythm', score: 20 }).ok, false);
+  assert.ok(engine.perform(s, t + 30000, { type: 'minigame', game: 'rhythm', score: 20 }).ok);
+  assert.equal(engine.buildConfig().minigameCooldown, 30);
+});
+
+test('ganti karakter: jenis berubah, kemajuan tetap, biaya dipotong', () => {
+  const s = pet({ level: 4, coins: 40 });
+  s.skills.lari = { lv: 3, xp: 1 };
+  const keep = { age: s.ageMinutes, level: s.level, xp: s.xp, stage: s.stage, stats: { ...s.stats }, skills: JSON.stringify(s.skills), shiny: s.shiny, id: s.id };
+  const r = act(s, { type: 'morph', species: 'trenggiling' });
+  assert.ok(r.ok);
+  assert.equal(s.species, 'trenggiling');
+  assert.equal(s.coins, 40 - C.MORPH_COST);
+  assert.equal(s.totals.morphs, 1);
+  assert.deepEqual({ age: s.ageMinutes, level: s.level, xp: s.xp, stage: s.stage, skills: JSON.stringify(s.skills), shiny: s.shiny, id: s.id }, { age: keep.age, level: keep.level, xp: keep.xp, stage: keep.stage, skills: keep.skills, shiny: keep.shiny, id: keep.id });
+  assert.equal(s.name, 'Momo', 'nama tidak berubah bila tidak diisi');
+  assert.ok(r.effects.coins === -C.MORPH_COST);
+});
+
+test('ganti karakter: ganti nama gratis, validasi, dan penolakan', () => {
+  const s = pet({ coins: 100 });
+  assert.ok(act(s, { type: 'morph', name: '  Kiko<b> ' }).ok);
+  assert.equal(s.name, 'Kikob', 'nama dibersihkan');
+  assert.equal(s.coins, 100, 'ganti nama gratis');
+  assert.equal(s.species, 'mochi');
+  assert.equal(act(s, { type: 'morph', species: 'mochi', name: 'Kikob' }).ok, false, 'tidak ada perubahan');
+  assert.equal(act(s, { type: 'morph', species: 'naga' }).ok, false);
+  for (const bad of ['__proto__', 'constructor', 5, null, {}]) assert.equal(act(s, { type: 'morph', species: bad }).ok, false, String(bad));
+  assert.equal(act(s, { type: 'morph', name: '   ' }).ok, false, 'nama kosong');
+  assert.equal(s.coins, 100);
+  s.coins = C.MORPH_COST - 1;
+  assert.match(act(s, { type: 'morph', species: 'babi' }).error, /koin/i);
+  assert.equal(s.species, 'mochi', 'gagal tidak mengubah apa pun');
+  s.coins = C.MORPH_COST;
+  assert.ok(act(s, { type: 'morph', species: 'babi' }).ok);
+  assert.equal(s.coins, 0);
+});
+
+test('ganti karakter: bisa saat masih telur & saat tidur; prestasi Si Bunglon', () => {
+  const egg = engine.createPet({ name: 'Telur', species: 'bubu' }, T0, 'egg-1', 9).state;
+  egg.coins = 50;
+  assert.ok(engine.perform(egg, T0, { type: 'morph', species: 'leafy' }).ok);
+  assert.equal(egg.species, 'leafy');
+  assert.equal(egg.stage, 'egg');
+
+  const s = pet({ coins: 100, sleeping: true });
+  for (const sp of ['babi', 'bubu', 'trenggiling']) assert.ok(act(s, { type: 'morph', species: sp }).ok, sp);
+  assert.equal(s.totals.morphs, 3);
+  assert.ok(s.achievements.morph3);
+  assert.equal(s.sleeping, true, 'tetap tidur');
+});
+
+test('ganti karakter: obrolan memakai gaya jenis yang baru', () => {
+  const s = pet({ coins: 100 });
+  act(s, { type: 'morph', species: 'babi' });
+  let oink = 0;
+  for (let i = 0; i < 40; i++) if (/Oink/.test(engine.perform(s, s.lastTickAt + (i + 1) * 40000, { type: 'chat', text: 'apa kabar' }).reply)) oink++;
+  assert.ok(oink > 5, `gaya babi muncul (${oink}/40)`);
+});

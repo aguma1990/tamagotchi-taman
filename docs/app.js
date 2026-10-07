@@ -34,7 +34,7 @@ const ACT_MSG = {
   minigame: 'Seru! Main lagi yuk!', medicine: 'Udah enakan!', collect: 'Dapat harta!', buy: 'Keren, aku suka!',
   greet: 'Halo, teman baru!', train: 'Huff, capek tapi senang!', decorBuy: 'Tamannya makin bagus!',
 };
-const TOAST_TYPES = new Set(['achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor']);
+const TOAST_TYPES = new Set(['achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor', 'morph']);
 
 let S = null; // snapshot terakhir dari server
 let clockOffset = 0; // waktu server - waktu klien
@@ -240,7 +240,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     foodPop.hidden = true;
     if (gameOpen) $('#gameCanvas')._cancel?.();
-    for (const id of ['#away', '#picker', '#retire']) $(id).hidden = true;
+    for (const id of ['#away', '#picker', '#retire', '#morph']) $(id).hidden = true;
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
@@ -293,9 +293,9 @@ function openPicker() {
       el('span', { class: 'em', text: g.icon }), el('span', { class: 'nm', text: g.label }), el('span', { class: 'ds', text: g.desc }),
       el('span', { class: 'hs', text: hs ? `🏅 Rekor ${hs}` : 'Belum ada rekor' })));
   }
-  $('#picker .sub').textContent = cd > 0
+  $('#pickerSub').textContent = cd > 0
     ? `Tunggu ${Math.ceil(cd / 1000)} detik lagi untuk bermain.`
-    : 'Semua memberi koin & XP. Jeda 2 menit di antara permainan. Pecahkan rekor untuk bonus!';
+    : `Semua memberi koin & XP. Jeda ${S.config.minigameCooldown} detik di antara permainan. Pecahkan rekor untuk bonus!`;
   $('#picker').hidden = false;
 }
 $('#pickerCancel').addEventListener('click', () => { $('#picker').hidden = true; });
@@ -529,7 +529,7 @@ function renderQuests() {
   const pg = Object.values(cfg.playground), qr = Object.values(cfg.quests).map((q) => q.reward), ac = cfg.achievements.map((a) => a.reward);
   const lines = [
     ['🎪', 'Main di wahana taman', `${Math.min(...pg.map((x) => x.coins))}–${Math.max(...pg.map((x) => x.coins))} 🪙 tiap main`],
-    ['🎮', '4 mini-game', 'sampai 12 🪙 tiap 2 menit + bonus rekor'],
+    ['🎮', '4 mini-game', `sampai 12 🪙 tiap ${cfg.minigameCooldown} detik + bonus rekor`],
     ['💰', 'Harta karun di taman', 'muncul ±tiap 25 menit; lebih besar di ujung pelangi 🌈'],
     ['🦋', 'Sapa tamu taman', 'hewan yang mampir memberi koin & stiker'],
     ['🎁', 'Hadiah harian + streak', '7–19 🪙 (naik tiap hari beruntun)'],
@@ -678,15 +678,51 @@ function renderCollection() {
   );
 }
 
+// Ganti karakter (jenis & nama) — umur, level, status, dan keterampilan tetap
+function speciesPicker(box, selected) {
+  box.replaceChildren(...S.config.species.map((sp) => {
+    const face = el('span', { class: 'sp', text: AVATAR[sp] });
+    face.style.background = AVATAR_BG[sp];
+    return el('label', {}, el('input', { type: 'radio', name: 'species', value: sp, checked: sp === selected }), face, SPECIES[sp]);
+  }));
+}
+function updateMorphHint(form) {
+  const p = S.pet, cost = S.config.morphCost;
+  const sp = new FormData(form).get('species');
+  const changed = sp !== p.species;
+  $('#morphSubmit').textContent = changed ? `Ganti karakter · 🪙 ${cost}` : 'Simpan nama';
+  $('#morphSubmit').disabled = changed && p.coins < cost;
+  $('#morphError').textContent = changed && p.coins < cost ? `Koin belum cukup (butuh ${cost}).` : '';
+}
+function openMorph() {
+  if (!S?.pet) return;
+  const p = S.pet;
+  $('#morphSub').textContent = `Ubah jenis karakter (🪙 ${S.config.morphCost}) atau cukup ganti nama (gratis). ${p.name} tetap ${STAGE[p.stage].toLowerCase()} dengan level, status, dan keterampilan yang sama.`;
+  speciesPicker($('#morphSpecies'), p.species);
+  const form = $('#morphForm');
+  form.elements.name.value = p.name;
+  updateMorphHint(form);
+  $('#morph').hidden = false;
+}
+$('#morphBtn').addEventListener('click', () => { sfx.click(); openMorph(); });
+$('#morphCancel').addEventListener('click', () => { $('#morph').hidden = true; });
+$('#morphForm').addEventListener('change', (e) => updateMorphHint(e.currentTarget));
+$('#morphForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const species = f.get('species');
+  const changed = species !== S.pet.species;
+  const ok = await act({ type: 'morph', species, name: f.get('name') }, () => {
+    if (changed) { scene.confetti(scene.x, scene.y - 70, 40); scene.burst(scene.x, scene.y - 60, 'spark', 26); sfx.sticker(); buzz([20, 40, 20]); }
+  });
+  if (ok) $('#morph').hidden = true; else $('#morphError').textContent = 'Belum bisa — lihat pesan di atas.';
+});
+
 // Pensiun
 function openRetire() {
   const p = S.pet;
   $('#retireSub').textContent = `${p.name} akan masuk Galeri Keluarga dan mewariskan setengah keterampilannya. Koin, aksesori, dekorasi, album, dan prestasimu tetap.`;
-  $('#retireSpecies').replaceChildren(...S.config.species.map((sp) => {
-    const face = el('span', { class: 'sp', text: AVATAR[sp] });
-    face.style.background = AVATAR_BG[sp];
-    return el('label', {}, el('input', { type: 'radio', name: 'species', value: sp, checked: sp === p.species }), face, SPECIES[sp]);
-  }));
+  speciesPicker($('#retireSpecies'), p.species);
   $('#retireError').textContent = '';
   $('#retire').hidden = false;
 }
