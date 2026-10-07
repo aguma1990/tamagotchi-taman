@@ -145,3 +145,63 @@ test('web: uji acak — banyak aksi sampah, ekspor/impor, buka-ulang tidak merus
     }
   }
 });
+
+test('web: service worker valid & strategi pembaruan (jaringan dulu, lewati cache HTTP)', () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'docs', 'sw.js'), 'utf8');
+  assert.doesNotThrow(() => new vm.Script(src), 'sw.js bisa di-parse');
+  assert.match(src, /cache: 'reload'/, 'install melewati cache HTTP');
+  assert.match(src, /cache: 'no-cache'/, 'fetch memvalidasi ulang ke server');
+  assert.match(src, /caches\.match\(req/, 'cadangan offline dari cache');
+  const assets = JSON.parse(src.match(/const ASSETS = (\[[\s\S]*?\]);/)[1]);
+  for (const a of assets.filter((x) => x !== './')) assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', a)), `aset ${a} ada`);
+  assert.ok(assets.includes('./card.js') && assets.includes('./core.js') && assets.includes('./index.html'));
+});
+
+test('web: perilaku service worker — online selalu segar, offline memakai cache, lambat jatuh ke cache', async () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'docs', 'sw.js'), 'utf8');
+  const handlers = {};
+  const store = new Map();
+  const added = [];
+  let network = async () => ({ ok: true, url: 'net', clone() { return this; } });
+  class Req { constructor(url, init = {}) { this.url = url; this.method = 'GET'; this.cacheMode = init.cache; } }
+  const cacheObj = {
+    addAll: async (reqs) => { added.push(...reqs); },
+    put: async (r, res) => { store.set(r.url, res); },
+  };
+  const sandbox = {
+    self: { addEventListener: (t, fn) => { handlers[t] = fn; }, skipWaiting: () => {}, clients: { claim: () => {} }, location: { origin: 'https://x.test' } },
+    caches: { open: async () => cacheObj, keys: async () => [], delete: async () => true, match: async (r) => store.get(typeof r === 'string' ? r : r.url) },
+    fetch: (...a) => network(...a),
+    Request: Req, URL, Promise,
+    setTimeout: (fn, ms) => setTimeout(fn, ms / 200), // percepat batas waktu
+  };
+  vm.runInNewContext(src, sandbox);
+
+  let waited;
+  handlers.install({ waitUntil: (p) => { waited = p; } });
+  await waited;
+  assert.ok(added.length > 5 && added.every((r) => r.cacheMode === 'reload'), 'aset dipasang lewat cache: reload');
+
+  const run = (url) => new Promise((resolve) => handlers.fetch({ request: { url, method: 'GET' }, respondWith: (p) => resolve(p) })).then((p) => p);
+  // online: respons jaringan dipakai & disalin ke cache
+  const res = await run('https://x.test/app.js');
+  assert.equal(res.url, 'net');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.ok(store.has('https://x.test/app.js'), 'respons disalin ke cache');
+  // offline: jaringan gagal → pakai cache
+  store.set('https://x.test/app.js', { url: 'dari-cache' });
+  network = async () => { throw new Error('offline'); };
+  assert.equal((await run('https://x.test/app.js')).url, 'dari-cache');
+  // lambat: jaringan tidak menjawab → jatuh ke cache setelah batas waktu
+  network = () => new Promise(() => {});
+  assert.equal((await run('https://x.test/app.js')).url, 'dari-cache');
+  // permintaan lintas-origin & non-GET tidak dicegat
+  let intercepted = false;
+  handlers.fetch({ request: { url: 'https://lain.test/x.js', method: 'GET' }, respondWith: () => { intercepted = true; } });
+  handlers.fetch({ request: { url: 'https://x.test/api', method: 'POST' }, respondWith: () => { intercepted = true; } });
+  assert.equal(intercepted, false);
+});

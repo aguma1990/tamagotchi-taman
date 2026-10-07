@@ -151,6 +151,18 @@ export const { api } = createLocalApi();
 
 // PWA: simpan offline & minta penyimpanan permanen agar data tidak dibersihkan browser.
 if (typeof navigator !== 'undefined' && typeof location !== 'undefined' && /^https?:$/.test(location.protocol)) {
-  navigator.serviceWorker?.register('./sw.js').catch(() => {});
+  if (navigator.serviceWorker) {
+    // Bila versi baru mengambil alih saat aplikasi sedang terbuka, muat ulang sekali agar langsung memakai yang baru.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      const busy = () => document.querySelector('#game:not([hidden])') || document.querySelector('#retire:not([hidden]), #morph:not([hidden])');
+      const go = () => (busy() ? setTimeout(go, 3000) : location.reload());
+      go();
+    });
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
   navigator.storage?.persist?.().catch(() => {});
 }
