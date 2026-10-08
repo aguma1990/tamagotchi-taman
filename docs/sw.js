@@ -1,6 +1,6 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa internet, tetapi saat ONLINE selalu memakai versi terbaru
 // (jaringan lebih dulu, cadangan dari cache). Versi cache berubah tiap build.
-const CACHE = 'tamagotchi-92b65a7556';
+const CACHE = 'tamagotchi-501f56623c';
 const ASSETS = [
   "./",
   "./app.js",
