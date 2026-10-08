@@ -33,8 +33,42 @@ const HOUSE = Object.freeze({
   label: 'Rumah Hewan', emoji: '🐾', cost: 80, unlock: 2,
   perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak di dalam (+30% pulih energi)', 'Bisa masuk/keluar kapan saja dengan mengetuknya'],
 });
-// Tanpa rumah, hujan/badai langsung menurunkan kesehatan (poin per jam-game).
-const RAIN = Object.freeze({ hujan: 45, badai: 90 });
+// Dekorasi di dalam rumah hewan (dibeli terpisah; semuanya terpasang otomatis).
+const HOUSE_DECOR = Object.freeze({
+  bantal: { label: 'Bantal Empuk', emoji: '🛏️', cost: 25, perk: 'Tidur lebih nyenyak (+15% pulih energi)' },
+  mainan: { label: 'Boneka Beruang', emoji: '🧸', cost: 35, perk: 'Senang perlahan saat berada di dalam' },
+  lampu: { label: 'Lampu Tidur', emoji: '🕯️', cost: 30, perk: 'Tidak takut gelap: kebahagiaan turun lebih lambat di dalam' },
+  karpet: { label: 'Karpet Rajut', emoji: '🧶', cost: 40, perk: 'Hangat: kesehatan pulih perlahan saat berada di dalam' },
+  foto: { label: 'Foto Keluarga', emoji: '🖼️', cost: 45, perk: 'Hiasan dinding yang manis' },
+  bendera: { label: 'Bendera Hias', emoji: '🎏', cost: 50, perk: 'Hiasan atap yang meriah' },
+});
+// Tanpa rumah, cuaca basah/dingin langsung menurunkan kesehatan (poin per jam-game).
+const RAIN = Object.freeze({ hujan: 45, badai: 90, salju: 30 });
+
+// ---------- Warna bulu (dibeli di toko; hue = derajat warna HSL, pelangi berputar) ----------
+const TINTS = Object.freeze({
+  permen: { label: 'Merah Muda Permen', emoji: '🍬', cost: 40, unlock: 2, hue: 335 },
+  langit: { label: 'Biru Langit', emoji: '🩵', cost: 40, unlock: 2, hue: 205 },
+  mint: { label: 'Hijau Mint', emoji: '🍃', cost: 40, unlock: 2, hue: 150 },
+  jingga: { label: 'Jingga Mentari', emoji: '🍊', cost: 50, unlock: 3, hue: 28 },
+  ungu: { label: 'Ungu Anggur', emoji: '🍇', cost: 50, unlock: 3, hue: 275 },
+  pelangi: { label: 'Pelangi Ajaib', emoji: '🌈', cost: 160, unlock: 6, hue: -1 },
+});
+
+// ---------- Toko berputar: barang langka harian (aksesori khusus) ----------
+const RARE_COSMETICS = Object.freeze({
+  koboi: { label: 'Topi Koboi', emoji: '🤠', slot: 'head', cost: 140, unlock: 2, rare: true },
+  jerami: { label: 'Topi Jerami', emoji: '👒', slot: 'head', cost: 100, unlock: 2, rare: true },
+  bungatopi: { label: 'Mahkota Bunga', emoji: '🌺', slot: 'head', cost: 110, unlock: 2, rare: true },
+  goggle: { label: 'Kacamata Selam', emoji: '🥽', slot: 'face', cost: 120, unlock: 2, rare: true },
+  lonceng: { label: 'Kalung Lonceng', emoji: '🔔', slot: 'neck', cost: 90, unlock: 2, rare: true },
+  medali: { label: 'Medali Juara', emoji: '🏅', slot: 'neck', cost: 160, unlock: 2, rare: true },
+});
+const BREED_COST = 40; // koin untuk menitipkan telur keturunan (dewasa/lansia)
+const VISIT_REWARD = 5; // koin per kunjungan ke taman teman
+const VISIT_DAILY_MAX = 3;
+const SHOP_RARE_COUNT = 3; // barang langka yang dijual per hari
+const SHOP_DEAL_PCTS = Object.freeze([20, 30, 40, 50]);
 
 const THEMES = Object.freeze({
   default: { label: 'Hijau Asri', emoji: '🌿', cost: 0, unlock: 1 },
@@ -60,6 +94,7 @@ const STICKERS = Object.freeze({
   perayaan: { emoji: '🎊', label: 'Perayaan', rarity: 'tidak umum', hint: 'Hari spesial & hari raya' },
   mahkota: { emoji: '👑', label: 'Mahkota Warisan', rarity: 'langka', hint: 'Pensiunkan peliharaan lansia' },
   berlian: { emoji: '💎', label: 'Berlian', rarity: 'langka', hint: 'Hadiah mingguan' },
+  teman: { emoji: '🤝', label: 'Sahabat Taman', rarity: 'tidak umum', hint: 'Kunjungi taman teman 3 kali' },
   api: { emoji: '🔥', label: 'Api Semangat', rarity: 'tidak umum', hint: 'Streak harian 7 hari' },
 });
 /** Peluang stiker dari harta karun & kotak keberuntungan. */
@@ -88,6 +123,8 @@ const MINIGAMES = Object.freeze({
   memory: { label: 'Pasangan Memori', icon: '🃏', desc: 'Cocokkan semua pasangan kartu sebelum waktu habis.' },
   food: { label: 'Tangkap Makanan', icon: '🍎', desc: 'Geser keranjang, tangkap makanan enak, hindari yang busuk.' },
   rhythm: { label: 'Irama Ketuk', icon: '🎵', desc: 'Ketuk jalur saat not menyentuh garis.' },
+  fishing: { label: 'Memancing', icon: '🎣', desc: 'Geser perahu, tangkap ikan yang lewat. Hindari sepatu bot & ikan buntal.' },
+  runner: { label: 'Lari Rintangan', icon: '🏃', desc: 'Ketuk untuk melompat, hindari rintangan, kumpulkan bintang.' },
 });
 const MINIGAME_MAX = 60;
 const PLAY_COOLDOWN = 30; // detik: jeda main wahana & mini-game
@@ -121,6 +158,8 @@ const WEATHERS = Object.freeze({
   hujan: { label: 'Hujan', emoji: '🌧️' },
   badai: { label: 'Badai', emoji: '⛈️' },
   pelangi: { label: 'Pelangi', emoji: '🌈' },
+  salju: { label: 'Salju', emoji: '❄️' },
+  meteor: { label: 'Hujan Meteor', emoji: '🌠' },
 });
 const WEATHER_SLOT_MS = 20 * MIN;
 
@@ -180,7 +219,7 @@ function hash01(str) {
 }
 
 module.exports = {
-  DECOR, DECOR_SLOTS, TREASURE_SPOTS, THEMES, HOUSE, RAIN, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
+  DECOR, DECOR_SLOTS, TREASURE_SPOTS, THEMES, HOUSE, HOUSE_DECOR, TINTS, RARE_COSMETICS, SHOP_RARE_COUNT, SHOP_DEAL_PCTS, BREED_COST, VISIT_REWARD, VISIT_DAILY_MAX, RAIN, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
   SKILLS, SKILL_MAX, TRAIN, skillNeed, TRAITS, PREF_FOODS, WEATHERS, WEATHER_SLOT_MS, HOLIDAYS,
   hijri, holidayOn, weekKey, hash01,
 };
@@ -500,6 +539,7 @@ const COSMETICS = Object.freeze({
   bulat: { label: 'Kacamata Bulat', emoji: '👓', slot: 'face', cost: 35, unlock: 2 },
   syal: { label: 'Syal Hangat', emoji: '🧣', slot: 'neck', cost: 35, unlock: 1 },
   dasi: { label: 'Dasi Kupu', emoji: '🦋', slot: 'neck', cost: 50, unlock: 2 },
+  ...C.RARE_COSMETICS, // hanya dijual bila muncul di toko hari ini (lihat shopToday)
 });
 
 const QUESTS = Object.freeze({
@@ -542,6 +582,9 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'adult', icon: '🌱', label: 'Dewasa', desc: 'Tumbuh dewasa', reward: 50, test: (s) => s.stage === 'adult' || s.stage === 'elder' },
   { id: 'radiant', icon: '🌟', label: 'Bersinar', desc: 'Tumbuh dewasa dalam bentuk bersinar', reward: 80, test: (s) => s.form === 'radiant' },
   { id: 'elder', icon: '🧓', label: 'Panjang Umur', desc: 'Peliharaan mencapai usia lansia', reward: 60, test: (s) => s.stage === 'elder' || s.family.length > 0 },
+  { id: 'breed', icon: '🥚', label: 'Calon Orang Tua', desc: 'Titipkan telur keturunan', reward: 25, test: (s) => s.totals.breeds >= 1 },
+  { id: 'visit3', icon: '🤝', label: 'Tetangga Ramah', desc: 'Kunjungi taman teman 3 kali', reward: 20, test: (s) => s.totals.visits >= 3 },
+  { id: 'wish', icon: '🌠', label: 'Pemburu Bintang', desc: 'Membuat permohonan di hujan meteor', reward: 20, test: (s) => s.totals.wishes >= 1 },
   { id: 'gen2', icon: '👨‍👩‍👧', label: 'Generasi Kedua', desc: 'Mengasuh telur dari peliharaan pensiunan', reward: 60, test: (s) => s.generation >= 2 },
 ]);
 
@@ -584,6 +627,11 @@ function weatherAt(s, now) {
   const w = baseWeather(s, slot);
   const prev = baseWeather(s, slot - 1);
   if (w === 'cerah' && (prev === 'hujan' || prev === 'badai') && C.hash01(`${s.id}:r:${slot}`) < 0.5) return 'pelangi';
+  if (w === 'hujan' && s.decor?.theme === 'salju') return 'salju'; // di Negeri Salju, hujan berubah jadi salju
+  if (w === 'cerah' || w === 'berawan') { // hujan meteor: hanya malam hari
+    const h = gameHour(s, (slot + 0.5) * C.WEATHER_SLOT_MS); // jam di tengah slot → cuaca stabil sepanjang slot
+    if ((h >= 20 || h < 4.5) && C.hash01(`${s.id}:m:${slot}`) < 0.45) return 'meteor';
+  }
   return w;
 }
 
@@ -595,13 +643,40 @@ function eventOn(s, now) {
   return h ? { ...h, sticker: 'perayaan' } : null;
 }
 
+const isWet = (wx) => Object.hasOwn(C.RAIN, wx); // cuaca yang membuat basah/dingin di luar rumah
+
 function worldView(s, now) {
   const e = eventOn(s, now);
   return {
     weather: weatherAt(s, now),
     weatherEnds: (Math.floor(now / C.WEATHER_SLOT_MS) + 1) * C.WEATHER_SLOT_MS,
+    wishable: weatherAt(s, now) === 'meteor' && s.wish !== Math.floor(now / C.WEATHER_SLOT_MS),
     event: e ? { ...e, claimed: s.eventClaimed[e.id] === dateKey(now) } : null,
   };
+}
+
+// ---------- toko berputar ----------
+const nextMidnight = (ms) => { const d = new Date(ms); d.setHours(24, 0, 0, 0); return d.getTime(); };
+/** Stok toko hari ini: barang langka (berganti tiap hari) + promo diskon. Deterministik dari tanggal & id peliharaan. */
+function shopToday(s, now) {
+  const date = dateKey(now);
+  const byHash = (tag, ids) => ids.map((id) => ({ id, k: C.hash01(`${s.id}:${tag}:${date}:${id}`) })).sort((a, b) => a.k - b.k).map((x) => x.id);
+  const rare = byHash('rare', Object.keys(C.RARE_COSMETICS)).slice(0, C.SHOP_RARE_COUNT);
+  const pool = [
+    ...Object.entries(COSMETICS).filter(([, v]) => !v.rare).map(([id]) => `cosmetic:${id}`),
+    ...Object.keys(C.DECOR).map((id) => `decor:${id}`),
+    ...Object.keys(C.TINTS).map((id) => `tint:${id}`),
+    ...Object.keys(C.HOUSE_DECOR).map((id) => `hdecor:${id}`),
+  ];
+  const deals = byHash('deal', pool).slice(0, 2).map((key, i) => {
+    const [kind, id] = key.split(':');
+    return { kind, id, pct: C.SHOP_DEAL_PCTS[Math.floor(C.hash01(`${s.id}:pct:${date}:${i}`) * C.SHOP_DEAL_PCTS.length)] };
+  });
+  return { date, rare, deals, endsAt: nextMidnight(now) };
+}
+function priceOf(s, now, kind, id, base) {
+  const d = shopToday(s, now).deals.find((x) => x.kind === kind && x.id === id);
+  return d ? Math.max(1, Math.floor((base * (100 - d.pct)) / 100)) : base;
 }
 
 // ---------- misi, mingguan, prestasi ----------
@@ -763,6 +838,12 @@ function migrate(s, now) {
   s.eventClaimed ??= {};
   s.memory ??= {};
   s.house ??= { owned: false, inside: false, reason: null, warned: -1 };
+  s.house.items ??= [];
+  s.tint ??= { owned: [], active: null };
+  s.nest ??= null;
+  s.friends ??= { date: '', ids: [] };
+  s.wish ??= -1;
+  for (const k of ['breeds', 'visits', 'wishes']) s.totals[k] ??= 0;
   if (!Number.isFinite(s.coins)) s.coins = 0;
   rollDaily(s, now);
   rollWeekly(s, now);
@@ -853,7 +934,7 @@ function grantXp(s, amount, t, events) {
     const unlocked = [
       ...Object.values(PLAYGROUND).filter((v) => v.unlock === level).map((v) => v.label),
       ...Object.values(C.DECOR).filter((v) => v.unlock === level).map((v) => v.label),
-      ...Object.values(COSMETICS).filter((v) => v.unlock === level).map((v) => v.label),
+      ...Object.values(COSMETICS).filter((v) => !v.rare && v.unlock === level).map((v) => v.label),
     ];
     const extra = unlocked.length ? ` Terbuka: ${unlocked.slice(0, 4).join(', ')}${unlocked.length > 4 ? '…' : ''}!` : '';
     const bonus = 5 * level;
@@ -918,6 +999,8 @@ function syncHouse(s, wet, events, t) {
   }
 }
 
+const hItem = (s, id) => s.house.items?.includes(id);
+
 function stepOne(s, t, ctx, mult) {
   const speed = CONFIG.speed;
   s.ageMinutes += speed;
@@ -931,7 +1014,7 @@ function stepOne(s, t, ctx, mult) {
 
   // cuaca & rumah: tanpa rumah, hujan/badai langsung menggerogoti kesehatan
   const wx = weatherAt(s, t);
-  const wet = wx === 'hujan' || wx === 'badai';
+  const wet = isWet(wx);
   syncHouse(s, wet, ctx.events, t);
   const exposed = wet && !s.house.inside;
   if (exposed) {
@@ -940,7 +1023,7 @@ function stepOne(s, t, ctx, mult) {
       s.house.warned = slot;
       ctx.events.push(ev(t, 'weather', s.house.owned
         ? `🌧️ ${s.name} kehujanan di luar! Kesehatannya turun.`
-        : `🌧️ ${wx === 'badai' ? 'Badai' : 'Hujan'}! ${s.name} kehujanan dan kesehatannya turun cepat. Beli rumah di Toko agar ia bisa berteduh.`));
+        : `🌧️ ${wx === 'badai' ? 'Badai' : wx === 'salju' ? 'Salju' : 'Hujan'}! ${s.name} ${wx === 'salju' ? 'kedinginan' : 'kehujanan'} dan kesehatannya turun cepat. Beli rumah di Toko agar ia bisa berteduh.`));
     }
   }
 
@@ -950,7 +1033,7 @@ function stepOne(s, t, ctx, mult) {
     st.happiness -= r.happiness * perMin * mult;
     st.hygiene -= r.hygiene * perMin * mult;
     st.thirst -= r.thirst * perMin * mult;
-    st.energy -= r.energy * perMin * (s.house.inside ? 1.3 : 1); // negatif = pulih; di rumah lebih nyenyak
+    st.energy -= r.energy * perMin * (s.house.inside ? 1.3 + (hItem(s, 'bantal') ? 0.15 : 0) : 1); // negatif = pulih; di rumah lebih nyenyak
     if (st.energy >= 100) {
       s.sleeping = false;
       ctx.events.push(ev(t, 'wake', `☀️ ${s.name} bangun dengan segar.`));
@@ -964,6 +1047,10 @@ function stepOne(s, t, ctx, mult) {
     st.thirst -= r.thirst * perMin * mult * keep;
     if (s.sick) st.happiness -= 3 * perMin * mult;
     if (exposed) st.happiness -= (wx === 'badai' ? 6 : 3) * perMin * mult;
+    if (s.house.inside) { // isi rumah hewan
+      if (hItem(s, 'mainan')) st.happiness += 2 * perMin;
+      if (hItem(s, 'lampu')) st.happiness += r.happiness * 0.4 * perMin * mult; // ~40% lebih sedikit turun
+    }
 
     if (s.poop < CONFIG.maxPoop && rand(s) < (speed / 150) * mult) {
       s.poop += 1;
@@ -985,6 +1072,7 @@ function stepOne(s, t, ctx, mult) {
   if (s.sick) dh -= 3;
   // saat ditinggal (offline), hujan tidak menurunkan kesehatan di bawah 35 — drama saat dimainkan, bukan hukuman saat pergi
   if (exposed && !(mult < 1 && st.health <= 35)) dh -= C.RAIN[wx];
+  if (s.house.inside && hItem(s, 'karpet') && !s.sick) dh += 1.5;
   if (dh < 0) dh *= mult;
   else if (!s.sick && st.hunger >= 40 && st.energy >= 40 && st.hygiene >= 40) dh += 3;
   st.health += dh * perMin;
@@ -1102,7 +1190,9 @@ function retire(s, now, a, events) {
   if (s.stage !== 'elder') return `${s.name} belum cukup tua untuk pensiun.`;
   const name = cleanName(a.name);
   if (!name) return 'Nama telur baru tidak boleh kosong.';
-  if (!SPECIES.includes(a.species)) return 'Spesies tidak dikenal.';
+  const nest = s.nest;
+  const species = nest ? nest.species : a.species;
+  if (!SPECIES.includes(species)) return 'Spesies tidak dikenal.';
   const old = {
     name: s.name, species: s.species, form: s.form, shiny: s.shiny, trait: s.trait, generation: s.generation,
     level: s.level, ageMinutes: s.ageMinutes, bornAt: s.createdAt, retiredAt: now, equipped: { ...s.equipped },
@@ -1111,21 +1201,27 @@ function retire(s, now, a, events) {
   s.family.push(old);
   if (s.family.length > 50) s.family.shift();
 
-  const bonus = s.form === 'radiant' ? 0.04 : 0;
-  const inherited = Object.fromEntries(Object.entries(s.skills).map(([k, v]) => [k, { lv: Math.floor(v.lv / 2), xp: 0 }]));
+  const bonus = (s.form === 'radiant' ? 0.04 : 0) + (nest ? 0.06 : 0);
+  const keepRatio = nest ? 0.75 : 0.5; // telur keturunan mewarisi lebih banyak
+  const inherited = Object.fromEntries(Object.entries(s.skills).map(([k, v]) => [k, { lv: Math.floor(v.lv * keepRatio), xp: 0 }]));
   Object.assign(s, {
-    name, species: a.species, createdAt: now, lastTickAt: now, ageMinutes: 0, stage: 'egg', form: null, trait: null,
+    name, species, createdAt: now, lastTickAt: now, ageMinutes: 0, stage: 'egg', form: null, trait: null,
     stats: { hunger: 80, happiness: 80, energy: 90, hygiene: 100, thirst: 85, health: 100 },
     sleeping: false, sick: false, poop: 0, careSum: 0, careSamples: 0, cooldowns: {},
     equipped: { head: null, face: null, neck: null }, pc: freshPcounts(), skills: inherited, visitor: null,
-    generation: s.generation + 1, memory: {},
+    generation: s.generation + 1, memory: {}, nest: null,
   });
   rollBirth(s, bonus);
+  if (nest) { // warisan dari induk: makanan favorit & warna bulu
+    s.prefs.fav = nest.fav;
+    if (s.prefs.hate === nest.fav) s.prefs.hate = C.PREF_FOODS.find((f) => f !== nest.fav);
+    if (nest.tint && s.tint.owned.includes(nest.tint)) s.tint.active = nest.tint;
+  }
   const legacy = 20 + 10 * old.generation;
   s.coins += legacy;
   giveSticker(s, 'mahkota', now, events);
   events.push(ev(now, 'retire', `🎓 ${old.name} pensiun dengan bahagia dan masuk Galeri Keluarga. Warisan: +${legacy} 🪙`));
-  events.push(ev(now, 'birth', `🥚 Telur ${name} (generasi ${s.generation}) ditemukan di taman. Ia mewarisi sebagian keterampilan ${old.name}.`));
+  events.push(ev(now, 'birth', `🥚 Telur ${name} (generasi ${s.generation}) ditemukan di taman. Ia mewarisi ${nest ? 'banyak' : 'sebagian'} keterampilan ${old.name}${nest ? ', juga makanan favorit dan warnanya' : ''}.`));
   return null;
 }
 
@@ -1203,7 +1299,7 @@ function doAction(s, now, a, events, out = {}) {
       if (!s.sleeping) return `${s.name} sudah bangun.`;
       s.sleeping = false;
       s.stats.happiness = clamp(s.stats.happiness - (s.stats.energy < 60 ? 6 : 0));
-      syncHouse(s, ['hujan', 'badai'].includes(weatherAt(s, now)), events, now);
+      syncHouse(s, isWet(weatherAt(s, now)), events, now);
       events.push(ev(now, 'wake', `☀️ ${s.name} dibangunkan.`));
       return null;
     }
@@ -1236,7 +1332,7 @@ function doAction(s, now, a, events, out = {}) {
       setCooldown(s, key, now, item.cooldown);
       const w = weatherAt(s, now);
       const sickPenalty = s.sick ? 0.5 : 1;
-      const wet = w === 'hujan' || w === 'badai';
+      const wet = isWet(w);
       applyEffect(s, {
         energy: -cost,
         happiness: item.happiness * sickPenalty * (wet ? 1.25 : 1),
@@ -1450,8 +1546,10 @@ function doAction(s, now, a, events, out = {}) {
       if (!it) return 'Barang tidak dikenal.';
       if (s.inventory.includes(a.item)) return 'Sudah dimiliki.';
       if (s.level < it.unlock) return `${it.label} terbuka di level ${it.unlock}.`;
-      if (s.coins < it.cost) return 'Koin tidak cukup.';
-      s.coins -= it.cost;
+      if (it.rare && !shopToday(s, now).rare.includes(a.item)) return `${it.label} tidak dijual hari ini. Cek lagi besok!`;
+      const price = priceOf(s, now, 'cosmetic', a.item, it.cost);
+      if (s.coins < price) return 'Koin tidak cukup.';
+      s.coins -= price;
       s.inventory.push(a.item);
       s.equipped[it.slot] = a.item;
       events.push(ev(now, 'buy', `🛍️ ${s.name} sekarang memakai ${it.label.toLowerCase()}.`));
@@ -1473,12 +1571,97 @@ function doAction(s, now, a, events, out = {}) {
       events.push(ev(now, 'buy', `🐾 Rumah hewan baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
       return null;
     }
+    case 'houseDecorBuy': {
+      const it = own(C.HOUSE_DECOR, a.item);
+      if (!it) return 'Isi rumah tidak dikenal.';
+      if (!s.house.owned) return 'Beli rumah hewan dulu di Toko → Rumah.';
+      if (s.house.items.includes(a.item)) return 'Sudah dimiliki.';
+      const price = priceOf(s, now, 'hdecor', a.item, it.cost);
+      if (s.coins < price) return 'Koin tidak cukup.';
+      s.coins -= price;
+      s.house.items.push(a.item);
+      events.push(ev(now, 'buy', `${it.emoji} ${it.label} ditaruh di rumah hewan ${s.name}.`));
+      return null;
+    }
+    case 'tintBuy': {
+      const it = own(C.TINTS, a.tint);
+      if (!it) return 'Warna tidak dikenal.';
+      if (s.tint.owned.includes(a.tint)) return 'Sudah dimiliki.';
+      if (s.level < it.unlock) return `${it.label} terbuka di level ${it.unlock}.`;
+      const price = priceOf(s, now, 'tint', a.tint, it.cost);
+      if (s.coins < price) return 'Koin tidak cukup.';
+      s.coins -= price;
+      s.tint.owned.push(a.tint);
+      s.tint.active = a.tint;
+      events.push(ev(now, 'buy', `${it.emoji} Bulu ${s.name} kini berwarna ${it.label.toLowerCase()}!`));
+      return null;
+    }
+    case 'tintSet': {
+      if (a.tint === null || a.tint === 'asli') { s.tint.active = null; return null; }
+      if (!own(C.TINTS, a.tint)) return 'Warna tidak dikenal.';
+      if (!s.tint.owned.includes(a.tint)) return 'Belum dimiliki.';
+      s.tint.active = a.tint;
+      return null;
+    }
+    case 'breed': {
+      if (!['adult', 'elder'].includes(s.stage)) return `${s.name} belum dewasa.`;
+      if (s.nest) return 'Telur keturunan sudah dititipkan. Ia akan menetas saat peliharaan pensiun.';
+      if (s.coins < C.BREED_COST) return `Butuh ${C.BREED_COST} koin untuk menitipkan telur.`;
+      s.coins -= C.BREED_COST;
+      const mutate = rand(s) < 0.25;
+      const others = SPECIES.filter((x) => x !== s.species);
+      s.nest = {
+        species: mutate ? others[Math.floor(rand(s) * others.length)] : s.species,
+        parent: s.name, gen: s.generation, shiny: s.shiny, fav: s.prefs.fav,
+        tint: s.tint.active, form: s.form, at: now,
+      };
+      s.totals.breeds += 1;
+      grantXp(s, 10, now, events);
+      events.push(ev(now, 'breed', `🥚 ${s.name} menitipkan telur keturunan${mutate ? ' (jenisnya berbeda dari induk!)' : ''}. Telur ini menetas saat ${s.name} pensiun, membawa warisan lebih banyak.`));
+      return null;
+    }
+    case 'visit': {
+      const fid = typeof a.fid === 'string' ? a.fid : '';
+      if (!/^[A-Za-z0-9_-]{4,40}$/.test(fid)) return 'Kode teman tidak valid.';
+      if (fid === s.id) return 'Itu kode tamanmu sendiri.';
+      const fname = cleanName(a.fname) || 'teman';
+      const e = guard(needHatched);
+      if (e) return e;
+      const today = dateKey(now);
+      if (s.friends.date !== today) s.friends = { date: today, ids: [] };
+      if (s.friends.ids.includes(fid)) return `Kamu sudah mengunjungi ${fname} hari ini.`;
+      if (s.friends.ids.length >= C.VISIT_DAILY_MAX) return `Maksimal ${C.VISIT_DAILY_MAX} kunjungan teman per hari.`;
+      s.friends.ids.push(fid);
+      s.coins += C.VISIT_REWARD;
+      s.totals.visits += 1;
+      applyEffect(s, { happiness: 6 });
+      grantXp(s, 3, now, events);
+      events.push(ev(now, 'visit', `🤝 ${s.name} berkunjung ke taman ${fname}. +${C.VISIT_REWARD} 🪙`));
+      if (s.totals.visits >= 3) giveSticker(s, 'teman', now, events);
+      return null;
+    }
+    case 'wish': {
+      const slot = Math.floor(now / C.WEATHER_SLOT_MS);
+      if (weatherAt(s, now) !== 'meteor') return 'Tidak ada hujan meteor sekarang.';
+      if (s.wish === slot) return 'Permohonan sudah dibuat untuk hujan meteor ini.';
+      const e = guard(needHatched);
+      if (e) return e;
+      s.wish = slot;
+      const gain = 8 + Math.floor(rand(s) * 8);
+      s.coins += gain;
+      s.totals.wishes += 1;
+      applyEffect(s, { happiness: 10 });
+      grantXp(s, 4, now, events);
+      events.push(ev(now, 'wish', `🌠 ${s.name} membuat permohonan pada bintang jatuh. +${gain} 🪙`));
+      if (rand(s) < 0.4) giveSticker(s, 'bintang', now, events);
+      return null;
+    }
     case 'home': {
       const h = s.house;
       if (!h.owned) return 'Belum punya rumah. Beli di Toko → Rumah.';
       const e = guard(needHatched);
       if (e) return e;
-      const wet = ['hujan', 'badai'].includes(weatherAt(s, now));
+      const wet = isWet(weatherAt(s, now));
       if (h.inside) {
         if (h.reason === 'sleep') return `${s.name} sedang tidur di rumah.`;
         if (wet) return `Masih hujan — ${s.name} tetap di dalam rumah.`;
@@ -1495,8 +1678,9 @@ function doAction(s, now, a, events, out = {}) {
       if (!it) return 'Dekorasi tidak dikenal.';
       if (s.decor.owned.includes(a.item)) return 'Sudah dimiliki.';
       if (s.level < it.unlock) return `${it.label} terbuka di level ${it.unlock}.`;
-      if (s.coins < it.cost) return 'Koin tidak cukup.';
-      s.coins -= it.cost;
+      const price = priceOf(s, now, 'decor', a.item, it.cost);
+      if (s.coins < price) return 'Koin tidak cukup.';
+      s.coins -= price;
       s.decor.owned.push(a.item);
       const full = placeDecor(s, a.item);
       events.push(ev(now, 'buy', full ? `🏡 ${it.label} dibeli, tetapi tempatnya penuh — disimpan dulu.` : `🏡 ${it.label} dipasang di taman.`));
@@ -1539,7 +1723,7 @@ function perform(s, now, action) {
   const out = {};
   const error = doAction(s, now, action || {}, events, out);
   if (!error) {
-    syncHouse(s, ['hujan', 'badai'].includes(weatherAt(s, now)), events, now);
+    syncHouse(s, isWet(weatherAt(s, now)), events, now);
     checkAchievements(s, now, events);
     s.memory.interact = now;
   }
@@ -1571,6 +1755,11 @@ function buildConfig() {
     decor: C.DECOR,
     decorSlots: C.DECOR_SLOTS,
     house: C.HOUSE,
+    houseDecor: C.HOUSE_DECOR,
+    tints: C.TINTS,
+    breedCost: C.BREED_COST,
+    visitReward: C.VISIT_REWARD,
+    visitMax: C.VISIT_DAILY_MAX,
     rainDamage: C.RAIN,
     themes: C.THEMES,
     stickers: C.STICKERS,
@@ -1593,13 +1782,13 @@ function buildConfig() {
 
 /** Isi dinamis untuk klien: streak, cuaca, acara. */
 function viewExtras(s, now) {
-  return s ? { streak: effectiveStreak(s, now), world: worldView(s, now) } : { streak: 0, world: null };
+  return s ? { streak: effectiveStreak(s, now), world: worldView(s, now), shop: shopToday(s, now) } : { streak: 0, world: null, shop: null };
 }
 
 module.exports = {
   CONFIG, FOODS, PLAYGROUND, COSMETICS, QUESTS, QUEST_BONUS, ACHIEVEMENTS, SPECIES, STAT_KEYS, MEDICINE_COST, MIN, HOUR, C,
   createPet, advance, perform, migrate, gameHour, effectiveStreak, dateKey, levelForXp, xpForLevel, stageFor, careAverage, cleanName,
-  weatherAt, eventOn, worldView, buildConfig, viewExtras,
+  weatherAt, eventOn, worldView, shopToday, buildConfig, viewExtras,
 };
 
 return module.exports;

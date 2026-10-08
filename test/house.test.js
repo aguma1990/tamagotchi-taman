@@ -179,7 +179,7 @@ test('migrasi: save lama mendapat data rumah; konfigurasi memuat rumah', () => {
   const s = pet();
   delete s.house;
   engine.migrate(s, s.lastTickAt);
-  assert.deepEqual(s.house, { owned: false, inside: false, reason: null, warned: -1 });
+  assert.deepEqual(s.house, { owned: false, inside: false, reason: null, warned: -1, items: [] });
   const cfg = engine.buildConfig();
   assert.equal(cfg.house.cost, C.HOUSE.cost);
   assert.equal(cfg.rainDamage.badai, 2 * cfg.rainDamage.hujan);

@@ -17,6 +17,8 @@
         <span class="chip" title="Jam di taman" id="clock">🕒 <b>--:--</b></span>
         <span class="chip" title="Koin" id="coins">🪙 <b>0</b></span>
         <button class="chip btn" id="installBtn" type="button" hidden>📲 Pasang</button>
+        <button class="chip btn" id="friendBtn" type="button" aria-label="Taman teman" title="Kunjungi taman teman / bagikan kode tamanmu">🤝</button>
+        <button class="chip btn" id="notifyBtn" type="button" aria-label="Pengingat" title="Pengingat perawatan" hidden>🔕</button>
         <button class="chip btn" id="musicBtn" type="button" aria-label="Musik latar" title="Musik latar">🎵</button>
         <button class="chip btn" id="soundBtn" type="button" aria-label="Suara" title="Suara aktif/mati">🔊</button>
         <span class="chip" id="saved" title="Status penyimpanan"><i class="dot"></i> Tersimpan</span>
@@ -56,8 +58,10 @@
 
         <div id="tab-shop" class="tab-body" hidden>
           <div class="seg" id="shopSeg" role="tablist">
+            <button type="button" data-shop="today" aria-selected="false">🌟 Hari ini</button>
             <button type="button" data-shop="acc" aria-selected="true">🎩 Aksesori</button>
             <button type="button" data-shop="decor" aria-selected="false">🌳 Dekorasi</button>
+            <button type="button" data-shop="tint" aria-selected="false">🖌️ Warna</button>
             <button type="button" data-shop="theme" aria-selected="false">🎨 Tema</button>
             <button type="button" data-shop="house" aria-selected="false">🐾 Rumah</button>
           </div>
@@ -77,6 +81,8 @@
           <div id="album" class="album"></div>
           <h3 class="sec">Galeri keluarga <span id="familyCount"></span></h3>
           <div id="family" class="family"></div>
+          <h3 class="sec">Telur keturunan</h3>
+          <div id="nest" class="nest"></div>
           <div id="legacy" class="legacy"></div>
         </div>
 
@@ -210,6 +216,28 @@
       <button class="primary" type="submit" id="morphSubmit">Terapkan</button>
       <button class="ghost" id="morphCancel" type="button">Batal</button>
     </form>
+  </div>
+
+  <!-- Taman teman -->
+  <div class="modal" id="friend" hidden>
+    <div class="dialog friend-dialog">
+      <h2>Taman teman 🤝</h2>
+      <p class="sub">Bagikan kode tamanmu ke teman, atau tempel kode teman untuk berkunjung (+🪙5, maks. 3 kunjungan per hari). Kode hanya berisi tampilan taman dan peliharaan, tanpa koin.</p>
+      <label class="field">Kode tamanmu
+        <textarea id="myCode" readonly rows="3" spellcheck="false"></textarea>
+      </label>
+      <button class="claim" id="copyCode" type="button">📋 Salin / bagikan kode</button>
+      <label class="field">Kode teman
+        <input id="friendCode" placeholder="TAMA1.…" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="error" id="friendError" role="alert"></p>
+      <button class="primary" id="friendGo" type="button">Kunjungi taman</button>
+      <div id="friendView" class="friend-view" hidden>
+        <canvas id="friendCanvas" aria-label="Taman teman (hanya lihat)"></canvas>
+        <p class="sub" id="friendInfo"></p>
+      </div>
+      <button class="ghost" id="friendClose" type="button">Tutup</button>
+    </div>
   </div>
 
   <!-- Pensiun & telur baru -->

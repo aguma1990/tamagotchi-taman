@@ -85,6 +85,22 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 - **Obrolan** lokal yang mengingat namamu, sesuai suasana hati, cuaca, dan kebiasaan.
 - **Kartu peliharaan** PNG untuk dibagikan, musik latar generatif, efek suara, getar di HP.
 
+## Fitur lanjutan
+
+- **Toko berputar 🌟:** tiap hari ada **3 aksesori langka** (topi koboi, mahkota bunga, kacamata selam, kalung lonceng, medali, topi jerami) dan **2 promo diskon** 20–50%
+  (aksesori, dekorasi, warna, atau isi rumah). Stok dan promo berganti tiap hari; barang yang dibeli tetap milikmu. Lihat tab Toko → *Hari ini*.
+- **Isi rumah hewan:** bantal (tidur +15%), boneka (senang perlahan), lampu tidur (tidak takut gelap), karpet (kesehatan pulih perlahan), foto, dan bendera hias. Semua tampak di rumah.
+- **Warna bulu 🖌️:** 5 warna (🪙40–50) dan **Pelangi Ajaib** (🪙160, level 6) yang berputar warna. Ganti kapan saja tanpa biaya setelah dibeli.
+- **Telur keturunan 🥚:** saat dewasa, titipkan telur (🪙40). Saat peliharaan pensiun, telur menetas dan mewarisi **75% keterampilan** (bukan 50%), makanan favorit, warna,
+  dan peluang warna langka lebih besar. Ada peluang 25% jenisnya berbeda dari induk. Lihat tab Koleksi.
+- **Taman teman 🤝:** tombol 🤝 di atas membuat **kode taman** (tanpa koin/data pribadi) untuk dibagikan. Tempel kode teman untuk melihat tamannya (hanya lihat) dan dapat 🪙5
+  (maks. 3 kunjungan/hari). Kode divalidasi ketat dan tidak butuh server.
+- **Mini-game baru:** 🎣 Memancing dan 🏃 Lari Rintangan.
+- **Pengingat 🔔:** notifikasi saat peliharaan lapar, haus, kotor, kelelahan, sakit, atau kehujanan. Bekerja **selama aplikasi masih terbuka di latar belakang**; push saat
+  aplikasi ditutup total butuh server push yang sengaja tidak dipakai agar tetap lokal.
+- **Cuaca khusus:** ❄️ *Salju* (di tema Negeri Salju, hujan menjadi salju; tanpa rumah kesehatan turun lebih pelan daripada hujan) dan 🌠 *Hujan Meteor* (malam hari;
+  ketuk langit atau chip cuaca untuk membuat permohonan, hadiah koin & kadang stiker).
+
 ## Rumah, toko, dan taman yang hidup
 
 - **Rumah hewan 🐾** (kandang kayu, 🪙 80, level 2) harus dibeli. **Tanpa rumah, hujan menurunkan kesehatan dengan cepat** (hujan ~45/jam-game, badai ~90) dan
@@ -134,6 +150,6 @@ Praktik yang diterapkan: nol dependensi, bind hanya ke localhost, validasi Host/
 validasi semua aksi di server (klien tidak dipercaya), shutdown yang rapi, `prefers-reduced-motion`.
 
 ```bash
-npm test      # 110 tes (engine, rumah & hujan, tata letak, generasi, persistensi, uji acak, server, versi web): engine, catch-up offline, persistensi, pemulihan backup
+npm test      # 125 tes (engine, rumah & hujan, tata letak, generasi, persistensi, uji acak, server, versi web): engine, catch-up offline, persistensi, pemulihan backup
 PORT=4000 npm start   # ganti port (opsional)
 ```

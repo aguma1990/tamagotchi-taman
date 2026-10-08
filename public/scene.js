@@ -73,7 +73,39 @@ const SHINY = {
   babi: { body: '#fff0b3', light: '#fffbe3', dark: '#f0c14b', accent: '#d9a21f' },
   trenggiling: { body: '#9fb7e8', light: '#dbe5fa', dark: '#6f86bf', accent: '#4a60a0' },
 };
-const palOf = (p) => (p.shiny ? SHINY[p.species] : PALETTES[p.species]) || PALETTES.mochi;
+function hexToHsl(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  return [0, s, l];
+}
+function hslToHex(h, s, l) {
+  const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))));
+  return `#${((1 << 24) | (f(0) << 16) | (f(8) << 8) | f(4)).toString(16).slice(1)}`;
+}
+const tintCache = new Map();
+/** Geser warna palet ke hue tertentu (kecerahan & saturasi tetap). */
+function tinted(base, hue) {
+  const key = `${base.body}:${hue}`;
+  let out = tintCache.get(key);
+  if (!out) {
+    out = {};
+    for (const [k, v] of Object.entries(base)) {
+      const [, s, l] = hexToHsl(v);
+      out[k] = hslToHex(hue, Math.max(s, 0.45), l);
+    }
+    tintCache.set(key, out);
+  }
+  return out;
+}
+const palOf = (p) => {
+  const base = (p.shiny ? SHINY[p.species] : PALETTES[p.species]) || PALETTES.mochi;
+  const def = p.tint?.active ? Scene.tints?.[p.tint.active] : null;
+  if (!def) return base;
+  const hue = def.hue < 0 ? Math.round(((performance.now() / 40) % 360) / 6) * 6 : def.hue; // pelangi: berputar pelan
+  return tinted(base, hue);
+};
 
 // Tema taman: [siang, malam] untuk tiap lapisan.
 const THEME_COLORS = {
@@ -91,6 +123,7 @@ const CONFETTI_PETAL = ['#ffc8dc', '#ffb3cf', '#ffe3ee'];
 const NEED_ICON = { hungry: '🍎', thirsty: '💧', tired: '💤', dirty: '🛁', sick: '💊', sad: '💭' };
 
 export class Scene {
+  static tints = null; // {id: {hue}} dari konfigurasi server
   constructor(canvas, { reducedMotion = false, headless = false } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
@@ -118,6 +151,7 @@ export class Scene {
     this.training = null; // {kind, start, until, x0}
     this.cloud = 0; this.wet = 0; this.rb = 0; this.flash = 0; this.bolt = null;
     this.ambient = [];
+    this.meteors = []; // bintang jatuh (hujan meteor)
     this.onThunder = null;
     this.headless = headless;
     this.house = { owned: false, inside: false, reason: null }; // dari status peliharaan
@@ -192,6 +226,7 @@ export class Scene {
     for (const [key, s] of Object.entries(SPOTS)) {
       if (Math.hypot(pt.x - s.x, (pt.y - (s.y - 30)) * 1.2) < s.r) return { type: 'item', key, spot: s };
     }
+    if (this.world?.wishable && pt.y < HORIZON - 30) return { type: 'sky' };
     return null;
   }
 
@@ -375,7 +410,7 @@ export class Scene {
     if (this.blink > 0) this.blink -= dt;
 
     const p = this.pet;
-    this.cold = !!p && p.stage !== 'egg' && !this.house.inside && (this.world?.weather === 'hujan' || this.world?.weather === 'badai') && !this.hidden;
+    this.cold = !!p && p.stage !== 'egg' && !this.house.inside && ['hujan', 'badai', 'salju'].includes(this.world?.weather) && !this.hidden;
     this._syncHouse();
     if (this.visit) this._updateVisit(dt);
     else if (p && p.stage !== 'egg' && !p.sleeping) this._updatePetMotion(dt);
@@ -440,8 +475,9 @@ export class Scene {
     this._seenVisitor = vk;
     const wx = this.world?.weather || 'cerah';
     const wet = wx === 'hujan' || wx === 'badai';
+    const snowy = wx === 'salju';
     const ease = (cur, target, rate) => cur + (target - cur) * Math.min(1, dt * rate);
-    this.cloud = ease(this.cloud, wx === 'cerah' ? 0 : wx === 'pelangi' ? 0.25 : 1, 0.7);
+    this.cloud = ease(this.cloud, wx === 'cerah' || wx === 'meteor' ? 0 : wx === 'pelangi' ? 0.25 : snowy ? 0.7 : 1, 0.7);
     this.wet = ease(this.wet, wet ? 1 : 0, wet ? 0.5 : 0.05);
     this.rb = ease(this.rb, wx === 'pelangi' ? 1 : 0, 0.5);
     if (wx === 'badai' && Math.random() < dt * 0.14) { this.flash = 1; this.bolt = { x: rand(120, 780), seed: Math.random() }; this.onThunder?.(); }
@@ -453,6 +489,15 @@ export class Scene {
         this.ambient.push({ kind: 'rain', x: rand(-60, W), y: -12, vx: -90 - (wx === 'badai' ? 70 : 0), vy: rand(560, 760), len: rand(10, 17) });
       }
     }
+    if (snowy && this.ambient.length < 240 && Math.random() < dt * 60 * rate) { // salju lebat
+      this.ambient.push({ kind: 'salju', x: rand(-20, W), y: -10, vx: rand(-25, 10), vy: rand(40, 85), ph: rand(0, 6), r: rand(2.2, 4.8), c: 0 });
+    }
+    if (wx === 'meteor' && this._hour !== undefined && (this._hour >= 19.5 || this._hour < 5.5) && !this.reduced && Math.random() < dt * 0.9 && this.meteors.length < 4) {
+      const x0 = rand(80, W - 40), y0 = rand(10, 120);
+      this.meteors.push({ x: x0, y: y0, vx: rand(-420, -300), vy: rand(190, 260), t: 0, life: rand(0.8, 1.3) });
+    }
+    for (const m of this.meteors) { m.t += dt; m.x += m.vx * dt; m.y += m.vy * dt; }
+    this.meteors = this.meteors.filter((m) => m.t < m.life && m.y < HORIZON);
     const th = this.theme;
     if ((th === 'sakura' || th === 'gugur' || th === 'salju') && this.ambient.length < 90 && Math.random() < dt * 7 * rate) {
       this.ambient.push({ kind: th, x: rand(-20, W), y: -10, vx: rand(-20, 20), vy: rand(30, th === 'salju' ? 55 : 45), ph: rand(0, 6), r: rand(2.4, 4.6), c: Math.floor(rand(0, 3)) });
@@ -608,6 +653,7 @@ export class Scene {
     const th = THEME_COLORS[this.theme] || THEME_COLORS.default;
     this._sky(c, hour, dark);
     this._rainbow(c, dark);
+    this._meteorsDraw(c, dark);
     this._birdsDraw(c, dark);
     this._decorLayer(c, dark, 'sky');
     this._hills(c, dark, th);
@@ -953,9 +999,10 @@ export class Scene {
     c.fillStyle = mix('#e0617f', '#4a2a48', d6); c.beginPath(); c.ellipse(-44, -2, 11, 3, 0, 0, 7); c.fill();
     c.fillStyle = mix('#5aa8e0', '#25305a', d6); c.beginPath(); c.ellipse(46, -1, 12, 5, 0, 0, Math.PI); c.fill();
     c.fillStyle = mix('#8a5a34', '#3a2a22', d6); c.beginPath(); c.ellipse(46, -3, 12, 4, 0, 0, 7); c.fill();
+    if (owned) this._houseItems(c, dark, d6);
     c.restore();
     if (owned && this.inHouse && this.pet) { // wajah peliharaan mengintip dari pintu
-      const pal = (this.pet.shiny ? SHINY : PALETTES)[this.pet.species] || PALETTES.mochi;
+      const pal = palOf(this.pet);
       const bob = this.pet.sleeping ? 0 : Math.sin(this.t * 2) * 1.2;
       c.save();
       c.beginPath(); c.moveTo(x - 21, y); c.lineTo(x - 21, y - 30); c.arc(x, y - 30, 21, Math.PI, 0); c.lineTo(x + 21, y); c.closePath(); c.clip();
@@ -979,6 +1026,39 @@ export class Scene {
       c.fillStyle = '#5a3a1a'; c.font = '700 12px system-ui, sans-serif';
       c.fillText(`🪙 ${this.houseCost ?? 80}`, x, y - 29);
       c.textAlign = 'start';
+    }
+  }
+
+  /** Isi rumah hewan yang dibeli (digambar relatif ke pintu rumah, sudah di dalam c.translate). */
+  _houseItems(c, dark, d6) {
+    const items = this.house.items || [];
+    if (items.includes('bantal')) { // bantal besar di ambang pintu
+      c.fillStyle = mix('#fff1d6', '#5a4a5a', d6); c.beginPath(); c.ellipse(0, -2, 22, 6.5, 0, 0, 7); c.fill();
+      c.strokeStyle = mix('#e0b890', '#4a3a4a', d6); c.lineWidth = 1.2; c.setLineDash([3, 3]); c.beginPath(); c.ellipse(0, -2, 17, 4, 0, 0, 7); c.stroke(); c.setLineDash([]);
+    }
+    if (items.includes('karpet')) { // karpet rajut bergaris di depan
+      for (let i = 0; i < 5; i++) { c.fillStyle = mix(['#f6a6b8', '#ffe08a', '#a8dcff', '#b6e6a8', '#f6a6b8'][i], '#4a3a52', d6); c.beginPath(); c.ellipse(0, 5, 44 - i * 8, 7 - i * 1.2, 0, 0, 7); c.fill(); }
+    }
+    if (items.includes('mainan')) { c.font = '20px system-ui'; c.textAlign = 'center'; c.fillStyle = '#000'; c.globalAlpha = 1; c.fillText('🧸', -44, -6); c.textAlign = 'start'; }
+    if (items.includes('foto')) {
+      c.fillStyle = mix('#8a5a34', '#3a2a22', d6); c.fillRect(-52, -52, 22, 18);
+      c.fillStyle = mix('#fff7e6', '#6a6a86', dark * 0.5); c.fillRect(-49.5, -49.5, 17, 13);
+      c.fillStyle = '#ef6a8a'; c.beginPath(); c.arc(-43.5, -44, 2.8, 0, 7); c.arc(-38.5, -44, 2.8, 0, 7); c.moveTo(-47, -43); c.lineTo(-41, -37); c.lineTo(-35, -43); c.fill();
+    }
+    if (items.includes('lampu')) { // lentera kecil menggantung di tepi atap
+      const lit = dark > 0.25 || this.inHouse;
+      c.strokeStyle = mix('#6a4a2a', '#2a2030', d6); c.lineWidth = 1.5; c.beginPath(); c.moveTo(40, -56); c.lineTo(40, -48); c.stroke();
+      if (lit) { const g = c.createRadialGradient(40, -41, 1, 40, -41, 30); g.addColorStop(0, 'rgba(255,214,120,.55)'); g.addColorStop(1, 'rgba(255,214,120,0)'); c.fillStyle = g; c.fillRect(8, -72, 64, 64); }
+      c.fillStyle = lit ? '#ffd66b' : mix('#e8c88a', '#6a5a4a', dark); c.beginPath(); c.roundRect(35, -48, 10, 13, 3); c.fill();
+      c.fillStyle = mix('#6a4a2a', '#2a2030', d6); c.fillRect(34, -50, 12, 3); c.fillRect(34, -36, 12, 2.5);
+    }
+    if (items.includes('bendera')) { // untaian bendera di sepanjang atap
+      const cols = ['#ff6b9d', '#ffd166', '#6ee7a8', '#7fd6ff'];
+      for (const sg of [-1, 1]) for (let i = 0; i < 4; i++) {
+        const x = sg * (12 + i * 14), y = -104 + (12 + i * 14) * 0.74 + 3;
+        c.fillStyle = mix(cols[(i + (sg > 0 ? 2 : 0)) % 4], '#3a3050', dark * 0.5);
+        c.beginPath(); c.moveTo(x - 4, y); c.lineTo(x + 4, y); c.lineTo(x, y + 9); c.closePath(); c.fill();
+      }
     }
   }
 
@@ -1142,6 +1222,26 @@ export class Scene {
         g.addColorStop(0, `rgba(230,255,150,${0.9 * a})`); g.addColorStop(1, 'rgba(230,255,150,0)');
         c.fillStyle = g; c.fillRect(fx - 9, fy - 9, 18, 18);
       }
+    }
+  }
+
+  _meteorsDraw(c, dark) {
+    if (dark < 0.3) return;
+    c.save(); c.lineCap = 'round';
+    for (const m of this.meteors) {
+      const a = Math.sin(Math.min(1, m.t / m.life) * Math.PI), len = 0.16;
+      const g = c.createLinearGradient(m.x, m.y, m.x - m.vx * len, m.y - m.vy * len);
+      g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.strokeStyle = g; c.lineWidth = 2.4;
+      c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x - m.vx * len, m.y - m.vy * len); c.stroke();
+      c.fillStyle = `rgba(255,248,200,${a})`; c.beginPath(); c.arc(m.x, m.y, 2.6, 0, 7); c.fill();
+    }
+    c.restore();
+    if (this.world?.wishable && !this.reduced) { // petunjuk: ketuk langit untuk membuat permohonan
+      c.save(); c.textAlign = 'center'; c.font = '700 14px system-ui, sans-serif';
+      c.fillStyle = `rgba(255,248,200,${0.55 + 0.35 * Math.sin(this.t * 3)})`;
+      c.fillText('🌠 Ketuk langit untuk membuat permohonan', W / 2, 54);
+      c.restore();
     }
   }
 
@@ -1701,7 +1801,7 @@ export class Scene {
   }
 
   _egg(c, p) {
-    const pal = PALETTES[p.species] || PALETTES.mochi;
+    const pal = palOf(p);
     const wob = Math.sin(this.t * 3) * 0.08 * (1 + Math.sin(this.t * 0.7));
     c.rotate(wob);
     c.fillStyle = '#fff6e5';
@@ -1870,9 +1970,33 @@ export class Scene {
         c.beginPath(); c.moveTo(0, -19); c.lineTo(18, -29); c.lineTo(18, -9); c.closePath(); c.fill();
         c.fillStyle = '#4a58b5'; c.beginPath(); c.roundRect(-5, -25, 10, 12, 3); c.fill();
         break;
+      case 'lonceng':
+        c.strokeStyle = '#c0392b'; c.lineWidth = 7;
+        c.beginPath(); c.ellipse(0, -27, 38, 9, 0, 0.05 * Math.PI, 0.95 * Math.PI); c.stroke();
+        c.fillStyle = '#ffd166'; c.strokeStyle = '#e0a526'; c.lineWidth = 2;
+        c.beginPath(); c.arc(0, -12, 8, Math.PI, 0); c.lineTo(9, -6); c.lineTo(-9, -6); c.closePath(); c.fill(); c.stroke();
+        c.fillStyle = '#7a4f10'; c.beginPath(); c.arc(0, -5, 2.2, 0, 7); c.fill();
+        break;
+      case 'medali':
+        c.strokeStyle = '#3f7fd6'; c.lineWidth = 6;
+        c.beginPath(); c.moveTo(-20, -30); c.lineTo(0, -8); c.lineTo(20, -30); c.stroke();
+        c.fillStyle = '#ffd166'; c.strokeStyle = '#e0a526'; c.lineWidth = 2.5;
+        c.beginPath(); c.arc(0, -4, 11, 0, 7); c.fill(); c.stroke();
+        c.fillStyle = '#e0a526'; c.font = '700 13px system-ui'; c.textAlign = 'center'; c.fillText('★', 0, 0); c.textAlign = 'start';
+        break;
       default:
     }
     switch (eq.face) {
+      case 'goggle':
+        c.strokeStyle = '#2b3a4a'; c.lineWidth = 5;
+        c.beginPath(); c.moveTo(-31, -52); c.lineTo(-40, -56); c.moveTo(31, -52); c.lineTo(40, -56); c.stroke();
+        for (const x of [-17, 17]) {
+          c.fillStyle = 'rgba(120,205,235,.55)'; c.strokeStyle = '#ff7a3d'; c.lineWidth = 4;
+          c.beginPath(); c.arc(x, -50, 14, 0, 7); c.fill(); c.stroke();
+          c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(x - 5, -56, 4, 2.4, -0.5, 0, 7); c.fill();
+        }
+        c.strokeStyle = '#ff7a3d'; c.lineWidth = 4; c.beginPath(); c.moveTo(-3, -52); c.lineTo(3, -52); c.stroke();
+        break;
       case 'kacamata':
         c.fillStyle = 'rgba(24,20,48,.94)';
         for (const x of [-31, 5]) { c.beginPath(); c.roundRect(x, -61, 26, 19, 6); c.fill(); }
@@ -1890,6 +2014,26 @@ export class Scene {
       default:
     }
     switch (eq.head) {
+      case 'koboi':
+        c.fillStyle = '#9a6a3a'; c.strokeStyle = '#6e4a24'; c.lineWidth = 2;
+        c.beginPath(); c.ellipse(0, -80, 44, 9, 0, 0, 7); c.fill(); c.stroke();
+        c.beginPath(); c.moveTo(-23, -82); c.quadraticCurveTo(-26, -112, -10, -106); c.quadraticCurveTo(0, -98, 10, -106); c.quadraticCurveTo(26, -112, 23, -82); c.closePath(); c.fill(); c.stroke();
+        c.fillStyle = '#d94f4f'; c.fillRect(-23, -90, 46, 6);
+        break;
+      case 'jerami':
+        c.fillStyle = '#f2d27a'; c.strokeStyle = '#c9a548'; c.lineWidth = 2;
+        c.beginPath(); c.ellipse(0, -79, 46, 10, 0, 0, 7); c.fill(); c.stroke();
+        c.beginPath(); c.ellipse(0, -84, 26, 20, 0, Math.PI, 0); c.fill(); c.stroke();
+        c.fillStyle = '#e0584f'; c.fillRect(-26, -90, 52, 6);
+        break;
+      case 'bungatopi':
+        for (let i = 0; i < 7; i++) {
+          const a = Math.PI + (i / 6) * Math.PI, x = Math.cos(a) * 31, y = -80 + Math.sin(a) * 15;
+          c.fillStyle = ['#ff7aa8', '#ffd166', '#fff', '#b79bff'][i % 4];
+          for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(x + Math.cos(k * 1.256) * 5, y + Math.sin(k * 1.256) * 5, 3.6, 0, 7); c.fill(); }
+          c.fillStyle = '#ffb703'; c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill();
+        }
+        break;
       case 'pita':
         c.save(); c.translate(27, -77); c.rotate(0.4);
         c.fillStyle = '#ff6b9d';

@@ -26,8 +26,42 @@ const HOUSE = Object.freeze({
   label: 'Rumah Hewan', emoji: '🐾', cost: 80, unlock: 2,
   perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak di dalam (+30% pulih energi)', 'Bisa masuk/keluar kapan saja dengan mengetuknya'],
 });
-// Tanpa rumah, hujan/badai langsung menurunkan kesehatan (poin per jam-game).
-const RAIN = Object.freeze({ hujan: 45, badai: 90 });
+// Dekorasi di dalam rumah hewan (dibeli terpisah; semuanya terpasang otomatis).
+const HOUSE_DECOR = Object.freeze({
+  bantal: { label: 'Bantal Empuk', emoji: '🛏️', cost: 25, perk: 'Tidur lebih nyenyak (+15% pulih energi)' },
+  mainan: { label: 'Boneka Beruang', emoji: '🧸', cost: 35, perk: 'Senang perlahan saat berada di dalam' },
+  lampu: { label: 'Lampu Tidur', emoji: '🕯️', cost: 30, perk: 'Tidak takut gelap: kebahagiaan turun lebih lambat di dalam' },
+  karpet: { label: 'Karpet Rajut', emoji: '🧶', cost: 40, perk: 'Hangat: kesehatan pulih perlahan saat berada di dalam' },
+  foto: { label: 'Foto Keluarga', emoji: '🖼️', cost: 45, perk: 'Hiasan dinding yang manis' },
+  bendera: { label: 'Bendera Hias', emoji: '🎏', cost: 50, perk: 'Hiasan atap yang meriah' },
+});
+// Tanpa rumah, cuaca basah/dingin langsung menurunkan kesehatan (poin per jam-game).
+const RAIN = Object.freeze({ hujan: 45, badai: 90, salju: 30 });
+
+// ---------- Warna bulu (dibeli di toko; hue = derajat warna HSL, pelangi berputar) ----------
+const TINTS = Object.freeze({
+  permen: { label: 'Merah Muda Permen', emoji: '🍬', cost: 40, unlock: 2, hue: 335 },
+  langit: { label: 'Biru Langit', emoji: '🩵', cost: 40, unlock: 2, hue: 205 },
+  mint: { label: 'Hijau Mint', emoji: '🍃', cost: 40, unlock: 2, hue: 150 },
+  jingga: { label: 'Jingga Mentari', emoji: '🍊', cost: 50, unlock: 3, hue: 28 },
+  ungu: { label: 'Ungu Anggur', emoji: '🍇', cost: 50, unlock: 3, hue: 275 },
+  pelangi: { label: 'Pelangi Ajaib', emoji: '🌈', cost: 160, unlock: 6, hue: -1 },
+});
+
+// ---------- Toko berputar: barang langka harian (aksesori khusus) ----------
+const RARE_COSMETICS = Object.freeze({
+  koboi: { label: 'Topi Koboi', emoji: '🤠', slot: 'head', cost: 140, unlock: 2, rare: true },
+  jerami: { label: 'Topi Jerami', emoji: '👒', slot: 'head', cost: 100, unlock: 2, rare: true },
+  bungatopi: { label: 'Mahkota Bunga', emoji: '🌺', slot: 'head', cost: 110, unlock: 2, rare: true },
+  goggle: { label: 'Kacamata Selam', emoji: '🥽', slot: 'face', cost: 120, unlock: 2, rare: true },
+  lonceng: { label: 'Kalung Lonceng', emoji: '🔔', slot: 'neck', cost: 90, unlock: 2, rare: true },
+  medali: { label: 'Medali Juara', emoji: '🏅', slot: 'neck', cost: 160, unlock: 2, rare: true },
+});
+const BREED_COST = 40; // koin untuk menitipkan telur keturunan (dewasa/lansia)
+const VISIT_REWARD = 5; // koin per kunjungan ke taman teman
+const VISIT_DAILY_MAX = 3;
+const SHOP_RARE_COUNT = 3; // barang langka yang dijual per hari
+const SHOP_DEAL_PCTS = Object.freeze([20, 30, 40, 50]);
 
 const THEMES = Object.freeze({
   default: { label: 'Hijau Asri', emoji: '🌿', cost: 0, unlock: 1 },
@@ -53,6 +87,7 @@ const STICKERS = Object.freeze({
   perayaan: { emoji: '🎊', label: 'Perayaan', rarity: 'tidak umum', hint: 'Hari spesial & hari raya' },
   mahkota: { emoji: '👑', label: 'Mahkota Warisan', rarity: 'langka', hint: 'Pensiunkan peliharaan lansia' },
   berlian: { emoji: '💎', label: 'Berlian', rarity: 'langka', hint: 'Hadiah mingguan' },
+  teman: { emoji: '🤝', label: 'Sahabat Taman', rarity: 'tidak umum', hint: 'Kunjungi taman teman 3 kali' },
   api: { emoji: '🔥', label: 'Api Semangat', rarity: 'tidak umum', hint: 'Streak harian 7 hari' },
 });
 /** Peluang stiker dari harta karun & kotak keberuntungan. */
@@ -81,6 +116,8 @@ const MINIGAMES = Object.freeze({
   memory: { label: 'Pasangan Memori', icon: '🃏', desc: 'Cocokkan semua pasangan kartu sebelum waktu habis.' },
   food: { label: 'Tangkap Makanan', icon: '🍎', desc: 'Geser keranjang, tangkap makanan enak, hindari yang busuk.' },
   rhythm: { label: 'Irama Ketuk', icon: '🎵', desc: 'Ketuk jalur saat not menyentuh garis.' },
+  fishing: { label: 'Memancing', icon: '🎣', desc: 'Geser perahu, tangkap ikan yang lewat. Hindari sepatu bot & ikan buntal.' },
+  runner: { label: 'Lari Rintangan', icon: '🏃', desc: 'Ketuk untuk melompat, hindari rintangan, kumpulkan bintang.' },
 });
 const MINIGAME_MAX = 60;
 const PLAY_COOLDOWN = 30; // detik: jeda main wahana & mini-game
@@ -114,6 +151,8 @@ const WEATHERS = Object.freeze({
   hujan: { label: 'Hujan', emoji: '🌧️' },
   badai: { label: 'Badai', emoji: '⛈️' },
   pelangi: { label: 'Pelangi', emoji: '🌈' },
+  salju: { label: 'Salju', emoji: '❄️' },
+  meteor: { label: 'Hujan Meteor', emoji: '🌠' },
 });
 const WEATHER_SLOT_MS = 20 * MIN;
 
@@ -173,7 +212,7 @@ function hash01(str) {
 }
 
 module.exports = {
-  DECOR, DECOR_SLOTS, TREASURE_SPOTS, THEMES, HOUSE, RAIN, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
+  DECOR, DECOR_SLOTS, TREASURE_SPOTS, THEMES, HOUSE, HOUSE_DECOR, TINTS, RARE_COSMETICS, SHOP_RARE_COUNT, SHOP_DEAL_PCTS, BREED_COST, VISIT_REWARD, VISIT_DAILY_MAX, RAIN, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
   SKILLS, SKILL_MAX, TRAIN, skillNeed, TRAITS, PREF_FOODS, WEATHERS, WEATHER_SLOT_MS, HOLIDAYS,
   hijri, holidayOn, weekKey, hash01,
 };

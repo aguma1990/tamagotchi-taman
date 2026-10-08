@@ -20,7 +20,7 @@ function randomAction(r, s) {
   const pick = (a) => a[Math.floor(r() * a.length)];
   const junk = () => pick(GARBAGE);
   const mixed = (valid) => (r() < 0.25 ? junk() : pick(valid));
-  switch (Math.floor(r() * 25)) {
+  switch (Math.floor(r() * 32)) {
     case 0: return { type: 'feed', food: mixed(FOOD) };
     case 1: return { type: 'clean' };
     case 2: return { type: 'medicine' };
@@ -45,6 +45,13 @@ function randomAction(r, s) {
     case 21: return { type: 'morph', species: mixed(SPECIES), name: r() < 0.5 ? undefined : (r() < 0.3 ? junk() : pick(['Baru', 'Momo', '  ', 'X'.repeat(40)])) };
     case 22: return { type: 'houseBuy' };
     case 23: return { type: 'home' };
+    case 24: return { type: 'houseDecorBuy', item: mixed(['bantal', 'mainan', 'lampu', 'karpet', 'foto', 'bendera']) };
+    case 25: return { type: r() < 0.5 ? 'tintBuy' : 'tintSet', tint: mixed(['permen', 'langit', 'mint', 'jingga', 'ungu', 'pelangi', null, 'asli']) };
+    case 26: return { type: 'breed' };
+    case 27: return { type: 'visit', fid: r() < 0.3 ? junk() : pick(['abc12345', 'friend-1', 'friend-2', 'zzzz9999', 'k4']), fname: r() < 0.3 ? junk() : 'Teman' };
+    case 28: return { type: 'wish' };
+    case 29: return { type: 'buy', item: pick(['koboi', 'jerami', 'bungatopi', 'goggle', 'lonceng', 'medali']) };
+    case 30: return { type: 'minigame', game: pick(['fishing', 'runner']), score: Math.floor(r() * 80) };
     default: return r() < 0.5 ? { type: junk() } : junk();
   }
 }
@@ -67,6 +74,13 @@ function checkInvariants(s, ctx) {
   assert.ok(!s.sleeping || s.stage !== 'egg', `${ctx}: telur tidur`);
   assert.ok(!s.house.inside || s.house.owned, `${ctx}: di dalam rumah tanpa punya rumah`);
   assert.ok(!s.house.inside || ['manual', 'rain', 'sleep'].includes(s.house.reason), `${ctx}: alasan rumah`);
+  assert.ok(new Set(s.house.items).size === s.house.items.length && s.house.items.every((i) => C.HOUSE_DECOR[i]), `${ctx}: isi rumah`);
+  assert.ok(s.house.items.length === 0 || s.house.owned, `${ctx}: isi rumah tanpa rumah`);
+  assert.ok(new Set(s.tint.owned).size === s.tint.owned.length && s.tint.owned.every((i) => C.TINTS[i]), `${ctx}: warna`);
+  assert.ok(s.tint.active === null || s.tint.owned.includes(s.tint.active), `${ctx}: warna aktif`);
+  assert.ok(s.nest === null || SPECIES.includes(s.nest.species), `${ctx}: telur keturunan`);
+  assert.ok(s.friends.ids.length <= C.VISIT_DAILY_MAX, `${ctx}: kunjungan`);
+  for (const id of s.inventory) assert.ok(engine.COSMETICS[id], `${ctx}: aksesori tak dikenal ${id}`);
   assert.doesNotThrow(() => JSON.parse(JSON.stringify(s)), `${ctx}: serialisasi`);
 }
 
@@ -94,7 +108,7 @@ test('fuzz: 120 peliharaan × 250 langkah acak tidak melanggar invarian atau mel
   }
   assert.ok(okCount > actions * 0.15, `terlalu sedikit aksi sukses: ${okCount}/${actions}`);
   // setiap jenis aksi penting harus benar-benar pernah berhasil (uji ini tidak boleh lolos karena semuanya ditolak)
-  for (const type of ['feed', 'clean', 'sleep', 'cuddle', 'play', 'minigame', 'chat', 'daily', 'lucky', 'quest', 'collect', 'greet', 'train', 'buy', 'decorBuy', 'themeBuy', 'equip', 'retire', 'medicine', 'morph', 'houseBuy', 'home']) {
+  for (const type of ['feed', 'clean', 'sleep', 'cuddle', 'play', 'minigame', 'chat', 'daily', 'lucky', 'quest', 'collect', 'greet', 'train', 'buy', 'decorBuy', 'themeBuy', 'equip', 'retire', 'medicine', 'morph', 'houseBuy', 'home', 'houseDecorBuy', 'tintBuy', 'breed', 'visit', 'wish']) {
     assert.ok(okByType[type] > 0, `aksi "${type}" tidak pernah berhasil di uji acak (${JSON.stringify(okByType)})`);
   }
   process.stdout.write(`# fuzz: ${actions} aksi, ${okCount} sukses\n`);

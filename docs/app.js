@@ -3,6 +3,8 @@ import { playGame } from './minigame.js';
 import { sfx, setMuted, music, buzz } from './audio.js';
 import { api, LOCAL } from './api.js';
 import { makeCard } from './card.js';
+import { makeCode, parseCode, friendPet } from './friend.mjs';
+import { alertsFor } from './notify.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -28,13 +30,15 @@ const WEATHER_MSG = {
   hujan: ['Hujan! Seru, tapi dingin…', 'Tik tik tik, hujan turun!'],
   badai: ['Aaa, petir! Peluk aku…', 'Badainya seram…'],
   pelangi: ['Lihat, pelangi! 🌈', 'Katanya ada harta di ujung pelangi!'],
+  salju: ['Salju! Dingiiin… tapi cantik ❄️', 'Brrr, ada yang bikin boneka salju?'],
+  meteor: ['Wah, bintang jatuh! Ketuk langit, yuk buat permohonan 🌠'],
 };
 const ACT_MSG = {
   feed: 'Nyam, enak banget!', clean: 'Wangi~ makasih!', cuddle: 'Hehe, sayang kamu!', play: 'Seru banget!',
   minigame: 'Seru! Main lagi yuk!', medicine: 'Udah enakan!', collect: 'Dapat harta!', buy: 'Keren, aku suka!',
   greet: 'Halo, teman baru!', train: 'Huff, capek tapi senang!', decorBuy: 'Tamannya makin bagus!',
 };
-const TOAST_TYPES = new Set(['achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor', 'morph', 'weather', 'house']);
+const TOAST_TYPES = new Set(['breed', 'visit', 'wish', 'achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor', 'morph', 'weather', 'house']);
 
 let S = null; // snapshot terakhir dari server
 let clockOffset = 0; // waktu server - waktu klien
@@ -184,6 +188,7 @@ canvas.addEventListener('click', (e) => {
   if (hit.type === 'visitor') {
     return act({ type: 'greet' }, () => { scene.burst(scene.x, scene.y - 80, 'heart', 6); scene.confetti(scene.x, scene.y - 90, 14); sfx.sticker(); buzz(14); });
   }
+  if (hit.type === 'sky') return doWish();
   if (hit.type === 'building') return hit.key === 'shop' ? openShop('acc') : tapHouse();
   if (hit.type === 'pet') return doCuddle();
   act({ type: 'play', item: hit.key }, () => scene.goPlay(hit.key));
@@ -193,7 +198,8 @@ canvas.addEventListener('click', (e) => {
 const doCuddle = () => act({ type: 'cuddle' }, () => { scene.burst(scene.x, scene.y - 70, 'heart', 7); scene.petSpin(); sfx.heart(); buzz(14); });
 const SOUND_FOR = {
   feed: () => sfx.eat(), clean: () => sfx.splash(), play: () => sfx.ok(), minigame: () => sfx.ok(), medicine: () => sfx.ok(),
-  buy: () => sfx.coin(), decorBuy: () => sfx.coin(), themeBuy: () => sfx.coin(), quest: () => sfx.ok(), daily: () => sfx.coin(),
+  buy: () => sfx.coin(), decorBuy: () => sfx.coin(), themeBuy: () => sfx.coin(), houseDecorBuy: () => sfx.coin(), tintBuy: () => sfx.coin(),
+  wish: () => sfx.treasure(), breed: () => sfx.sticker(), visit: () => sfx.sticker(), quest: () => sfx.ok(), daily: () => sfx.coin(),
   train: () => sfx.ok(), lucky: () => sfx.treasure(), weekly: () => sfx.fanfare(), event: () => sfx.sticker(), retire: () => sfx.fanfare(),
 };
 
@@ -208,7 +214,7 @@ async function act(action, onOk) {
     onOk?.();
     SOUND_FOR[action.type]?.();
     floatEffects(r.effects);
-    if (r.effects?.coins > 0 && !['buy', 'decorBuy', 'themeBuy'].includes(action.type)) setTimeout(() => sfx.coin(), 250);
+    if (r.effects?.coins > 0 && !['buy', 'decorBuy', 'themeBuy', 'houseDecorBuy', 'tintBuy'].includes(action.type)) setTimeout(() => sfx.coin(), 250);
     if (ACT_MSG[action.type]) scene.say(ACT_MSG[action.type]);
     if (before && S.pet.level > before.level) levelUpFx();
     refreshHistory();
@@ -322,7 +328,7 @@ async function startGame(id) {
   $('#game').hidden = false;
   const c = $('#gameCanvas');
   $('#gameCancel').onclick = () => c._cancel?.();
-  const score = await playGame(id, c, { reducedMotion: reduced });
+  const score = await playGame(id, c, { reducedMotion: reduced, emoji: AVATAR[S.pet.species] });
   $('#game').hidden = true;
   gameOpen = false;
   if (score === null) return;
@@ -363,6 +369,7 @@ function apply(snap) {
   scene.decorSlots = p.decor.slots;
   scene.house = p.house;
   scene.houseCost = cfg.house.cost;
+  Scene.tints = cfg.tints;
   scene.visitor = p.visitor;
   scene.visitorEmoji = p.visitor ? cfg.visitors[p.visitor.kind]?.emoji : null;
   scene.visitorLabel = p.visitor ? cfg.visitors[p.visitor.kind]?.label.toLowerCase() : null;
@@ -424,9 +431,9 @@ function apply(snap) {
 
   const cdSig = (key, step = 5000) => Math.ceil(Math.max(0, (p.cooldowns[key] || 0) - serverNow()) / step);
   renderIf('quests', [p.daily, p.weekly, snap.streak, snap.world?.event, Object.keys(p.achievements), cfg.quests], renderQuests);
-  renderIf('shop', [shopTab, p.coins, p.level, p.inventory, p.equipped, p.decor, p.house, p.stage], renderShop);
+  renderIf('shop', [shopTab, p.coins, p.level, p.inventory, p.equipped, p.decor, p.house, p.stage, p.tint, snap.shop?.date, shopTab === 'today' ? Math.floor(serverNow() / 6e4) : 0], renderShop);
   renderIf('train', [p.skills, p.trait, p.prefs, p.highscores, p.stats.energy > 20, ...Object.keys(cfg.skills).map((k) => cdSig(`train:${k}`)), p.sleeping, p.stage], renderTrain);
-  renderIf('collection', [p.album, p.albumClaimed, p.family, p.stage, p.generation, p.stage === 'elder' ? 0 : Math.floor(p.ageMinutes / 60)], renderCollection);
+  renderIf('collection', [p.nest, p.coins >= cfg.breedCost, p.album, p.albumClaimed, p.family, p.stage, p.generation, p.stage === 'elder' ? 0 : Math.floor(p.ageMinutes / 60)], renderCollection);
   renderIf('about', [p.totals, Math.floor(p.ageMinutes / 5), p.trait, p.generation, p.careSamples > 0 ? Math.round(p.careSum / p.careSamples) : 100], renderAbout);
   updateBadge();
   updateTitle();
@@ -440,9 +447,12 @@ function renderWorld() {
   if (w) {
     const def = cfg.weathers[w.weather];
     chip.firstChild.textContent = `${def.emoji} `;
-    const wet = w.weather === 'hujan' || w.weather === 'badai';
+    const wet = ['hujan', 'badai', 'salju'].includes(w.weather);
     const exposed = wet && !S.pet.house.inside && S.pet.stage !== 'egg';
-    $('b', chip).textContent = exposed ? `${def.label} — kehujanan!` : wet && S.pet.house.inside ? `${def.label} — berteduh 🐾` : def.label;
+    const cold = w.weather === 'salju';
+    $('b', chip).textContent = exposed ? `${def.label} — ${cold ? 'kedinginan' : 'kehujanan'}!` : wet && S.pet.house.inside ? `${def.label} — berteduh 🐾` : w.wishable ? `${def.label} — ketuk untuk berdoa` : def.label;
+    chip.classList.toggle('btn', !!w.wishable);
+    chip.classList.toggle('fresh', !!w.wishable);
     chip.classList.toggle('danger', exposed);
   }
   const ec = $('#eventChip');
@@ -453,6 +463,10 @@ function renderWorld() {
     ec.classList.toggle('fresh', !w.event.claimed);
   }
 }
+function doWish() {
+  return act({ type: 'wish' }, () => { const x = 200 + Math.random() * 500; scene.burst(x, 90, 'spark', 26); scene.confetti(x, 100, 18); buzz([15, 30, 15]); });
+}
+$('#weather').addEventListener('click', () => { if (S?.world?.wishable) doWish(); });
 $('#eventChip').addEventListener('click', () => { showTab('quests'); $('#eventCard').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
 // Toko & rumah di adegan
@@ -492,7 +506,7 @@ function watchNeeds() {
   const p = S.pet;
   if (document.hidden || p.stage === 'egg') return;
   const wx = S.world?.weather;
-  if ((wx === 'hujan' || wx === 'badai') && !p.house.inside && Date.now() - (needLast.rain || 0) > 40000 && !(scene.bubble && scene.t < scene.bubble.until)) {
+  if (['hujan', 'badai', 'salju'].includes(wx) && !p.house.inside && Date.now() - (needLast.rain || 0) > 40000 && !(scene.bubble && scene.t < scene.bubble.until)) {
     needLast.rain = Date.now();
     scene.say(p.house.owned ? 'Brrr, aku kehujanan! Ketuk rumah supaya aku masuk…' : pick(['Brrr, dingin! Aku kehujanan… beli rumah di Toko dong!', 'Aku basah kuyup! Kesehatanku turun… butuh rumah!']), 5);
     sfx.pop();
@@ -609,10 +623,13 @@ function renderQuests() {
 function shopCard({ on, emoji, label, meta, button }) {
   return el('div', { class: `item${on ? ' on' : ''}` }, el('span', { class: 'em', text: emoji }), el('span', { class: 'nm', text: label }), el('span', { class: 'meta', text: meta }), button);
 }
-function buyBtn(it, onclick, label) {
-  const locked = S.pet.level < it.unlock, poor = S.pet.coins < it.cost;
+const dealOf = (kind, id) => S.shop?.deals?.find((d) => d.kind === kind && d.id === id);
+function buyBtn(it, onclick, label, kind, id) {
+  const d = kind ? dealOf(kind, id) : null;
+  const price = d ? Math.max(1, Math.floor((it.cost * (100 - d.pct)) / 100)) : it.cost;
+  const locked = S.pet.level < it.unlock, poor = S.pet.coins < price;
   return el('button', {
-    type: 'button', class: 'buy', disabled: locked || poor, text: locked ? `🔒 Lv ${it.unlock}` : `${label} 🪙 ${it.cost}`,
+    type: 'button', class: `buy${d ? ' deal' : ''}`, disabled: locked || poor, text: locked ? `🔒 Lv ${it.unlock}` : `${label} 🪙 ${price}${d ? ` · −${d.pct}%` : ''}`,
     title: locked ? `Terbuka di level ${it.unlock}` : poor ? 'Koin belum cukup' : `${label} ${it.label}`, onclick,
   });
 }
@@ -623,15 +640,52 @@ function renderShop() {
   $$('#shopSeg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.shop === shopTab)));
   // setiap pembelian: peliharaan berjalan ke toko, masuk, lalu keluar membawa tas (bila sedang di luar)
   const celebrate = (emoji) => () => { if (!scene.shopVisit(emoji)) scene.confetti(scene.x, scene.y - 80, 18); };
-  if (shopTab === 'acc') {
+  if (shopTab === 'today') {
+    const sh = S.shop;
+    if (!sh) return;
+    shop.append(el('h4', { text: `Barang langka · berganti ${fmtSpan(Math.max(0, sh.endsAt - serverNow()))} lagi` }));
+    for (const id of sh.rare) {
+      const it = cfg.cosmetics[id], owned = p.inventory.includes(id), on = p.equipped[it.slot] === id;
+      const button = owned
+        ? el('button', { type: 'button', text: on ? 'Lepas' : 'Pakai', onclick: () => act({ type: 'equip', item: id }, () => sfx.click()) })
+        : buyBtn(it, () => act({ type: 'buy', item: id }, celebrate(it.emoji)), 'Beli', 'cosmetic', id);
+      shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Dipakai' : 'Dimiliki') : `✨ Langka · ${SLOT_LABEL[it.slot]}`, button }));
+    }
+    shop.append(el('h4', { text: 'Promo diskon hari ini' }));
+    const KIND = {
+      cosmetic: { src: cfg.cosmetics, owned: (id) => p.inventory.includes(id), action: (id) => ({ type: 'buy', item: id }) },
+      decor: { src: cfg.decor, owned: (id) => p.decor.owned.includes(id), action: (id) => ({ type: 'decorBuy', item: id }) },
+      tint: { src: cfg.tints, owned: (id) => p.tint.owned.includes(id), action: (id) => ({ type: 'tintBuy', tint: id }) },
+      hdecor: { src: cfg.houseDecor, owned: (id) => p.house.items.includes(id), action: (id) => ({ type: 'houseDecorBuy', item: id }) },
+    };
+    for (const d of sh.deals) {
+      const k = KIND[d.kind], it = k?.src[d.id];
+      if (!it) continue;
+      const owned = k.owned(d.id);
+      shop.append(shopCard({ on: false, emoji: it.emoji, label: it.label, meta: owned ? 'Sudah dimiliki' : `🏷️ Diskon ${d.pct}%`,
+        button: owned ? el('button', { type: 'button', disabled: true, text: 'Dimiliki' }) : buyBtn(it, () => act(k.action(d.id), celebrate(it.emoji)), 'Beli', d.kind, d.id) }));
+    }
+    shop.append(el('p', { class: 'note wide', text: 'Stok langka dan promo berganti setiap hari. Barang yang sudah dibeli tetap jadi milikmu.' }));
+  } else if (shopTab === 'tint') {
+    shop.append(el('h4', { text: 'Warna bulu' }));
+    shop.append(shopCard({ on: !p.tint.active, emoji: '🎨', label: 'Warna asli', meta: p.tint.active ? 'Gratis' : 'Dipakai',
+      button: el('button', { type: 'button', disabled: !p.tint.active, text: p.tint.active ? 'Pakai' : 'Dipakai', onclick: () => act({ type: 'tintSet', tint: null }, () => sfx.click()) }) }));
+    for (const [id, it] of Object.entries(cfg.tints)) {
+      const owned = p.tint.owned.includes(id), on = p.tint.active === id;
+      const button = owned
+        ? el('button', { type: 'button', disabled: on, text: on ? 'Dipakai' : 'Pakai', onclick: () => act({ type: 'tintSet', tint: id }, () => sfx.click()) })
+        : buyBtn(it, () => act({ type: 'tintBuy', tint: id }, () => { scene.burst(scene.x, scene.y - 60, 'spark', 22); scene.petSpin?.(); }), 'Beli', 'tint', id);
+      shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Dipakai' : 'Dimiliki') : dealOf('tint', id) ? '🏷️ Promo hari ini' : 'Warna', button }));
+    }
+  } else if (shopTab === 'acc') {
     for (const slot of ['head', 'face', 'neck']) {
       shop.append(el('h4', { text: SLOT_LABEL[slot] }));
-      for (const [id, it] of Object.entries(cfg.cosmetics).filter(([, v]) => v.slot === slot)) {
+      for (const [id, it] of Object.entries(cfg.cosmetics).filter(([, v]) => v.slot === slot && (!v.rare || p.inventory.includes(id)))) {
         const owned = p.inventory.includes(id), on = p.equipped[slot] === id;
         const button = owned
           ? el('button', { type: 'button', text: on ? 'Lepas' : 'Pakai', onclick: () => act({ type: 'equip', item: id }, () => sfx.click()) })
-          : buyBtn(it, () => act({ type: 'buy', item: id }, celebrate(it.emoji)), 'Beli');
-        shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Dipakai' : 'Dimiliki') : SLOT_LABEL[slot], button }));
+          : buyBtn(it, () => act({ type: 'buy', item: id }, celebrate(it.emoji)), 'Beli', 'cosmetic', id);
+        shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Dipakai' : it.rare ? 'Dimiliki · langka' : 'Dimiliki') : dealOf('cosmetic', id) ? '🏷️ Promo hari ini' : SLOT_LABEL[slot], button }));
       }
     }
   } else if (shopTab === 'decor') {
@@ -640,8 +694,8 @@ function renderShop() {
       const owned = p.decor.owned.includes(id), on = p.decor.placed.includes(id);
       const button = owned
         ? el('button', { type: 'button', text: on ? 'Simpan' : 'Pasang', onclick: () => act({ type: 'decorPlace', item: id }, () => sfx.click()) })
-        : buyBtn(it, () => act({ type: 'decorBuy', item: id }, celebrate(it.emoji)), 'Beli');
-      shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Terpasang' : 'Disimpan') : 'Dekorasi', button }));
+        : buyBtn(it, () => act({ type: 'decorBuy', item: id }, celebrate(it.emoji)), 'Beli', 'decor', id);
+      shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Terpasang' : 'Disimpan') : dealOf('decor', id) ? '🏷️ Promo hari ini' : 'Dekorasi', button }));
     }
   } else if (shopTab === 'house') {
     const hc = cfg.house, h = p.house;
@@ -667,6 +721,14 @@ function renderShop() {
       el('ul', {}, ...hc.perks.map((x) => el('li', { text: x }))),
       el('div', { class: `s${!h.owned ? ' warn' : ''}`, text: status }),
       h.owned ? toggle : buy));
+    if (h.owned) {
+      shop.append(el('h4', { text: 'Isi rumah hewan' }));
+      for (const [id, it] of Object.entries(cfg.houseDecor)) {
+        const owned = h.items.includes(id);
+        shop.append(shopCard({ on: owned, emoji: it.emoji, label: it.label, meta: owned ? `Terpasang · ${it.perk}` : (dealOf('hdecor', id) ? `🏷️ Promo · ${it.perk}` : it.perk),
+          button: owned ? el('button', { type: 'button', disabled: true, text: 'Terpasang' }) : buyBtn({ ...it, unlock: 1 }, () => act({ type: 'houseDecorBuy', item: id }, () => { if (!scene.shopVisit(it.emoji)) scene.confetti(scene.x, scene.y - 80, 14); }), 'Beli', 'hdecor', id) }));
+      }
+    }
   } else {
     shop.append(el('h4', { text: 'Tema taman' }));
     for (const [id, it] of Object.entries(cfg.themes)) {
@@ -748,6 +810,19 @@ function renderCollection() {
       el('div', { class: 'meta', text: `Gen ${f.generation} · ${SPECIES[f.species]} · Lv ${f.level}${tr ? ` · ${tr.label}` : ''} · hidup ${fmtSpan(f.retiredAt - f.bornAt)}` })));
   }
 
+  const nest = $('#nest');
+  const grown = p.stage === 'adult' || p.stage === 'elder';
+  const nestAv = (sp) => { const a = el('div', { class: 'av', text: sp ? AVATAR[sp] : '🥚' }); a.style.background = sp ? AVATAR_BG[sp] : '#fff3d6'; return a; };
+  nest.replaceChildren(p.nest
+    ? el('div', { class: 'nestcard' }, nestAv(p.nest.species),
+      el('div', { class: 'nm', text: `Telur keturunan ${p.nest.species === p.species ? '' : '(jenis berbeda!) '}· ${SPECIES[p.nest.species]}` }),
+      el('div', { class: 'meta', text: `Dititipkan oleh ${p.nest.parent}. Menetas saat ${p.name} pensiun — mewarisi 75% keterampilan, makanan favorit, warna, dan peluang warna langka lebih besar.` }))
+    : el('div', { class: 'nestcard' }, nestAv(null),
+      el('div', { class: 'nm', text: 'Telur keturunan' }),
+      el('div', { class: 'meta', text: grown ? `Titipkan telur sekarang agar generasi berikutnya mewarisi lebih banyak dari ${p.name}.` : `Dibuka saat ${p.name} dewasa (umur ${fmtAge(cfg.stageStarts.adult)}).` }),
+      el('button', { class: 'claim', type: 'button', disabled: !grown || p.coins < cfg.breedCost, title: grown ? '' : 'Belum dewasa', text: `🥚 Titipkan telur · 🪙 ${cfg.breedCost}`,
+        onclick: () => act({ type: 'breed' }, () => { scene.burst(scene.x, scene.y - 70, 'heart', 10); scene.confetti(scene.x, scene.y - 90, 20); }) })));
+
   const elder = p.stage === 'elder';
   $('#legacy').replaceChildren(
     el('button', {
@@ -801,8 +876,10 @@ $('#morphForm').addEventListener('submit', async (e) => {
 // Pensiun
 function openRetire() {
   const p = S.pet;
-  $('#retireSub').textContent = `${p.name} akan masuk Galeri Keluarga dan mewariskan setengah keterampilannya. Koin, aksesori, dekorasi, album, dan prestasimu tetap.`;
-  speciesPicker($('#retireSpecies'), p.species);
+  $('#retireSub').textContent = p.nest
+    ? `${p.name} akan masuk Galeri Keluarga. Telur keturunan (${SPECIES[p.nest.species]}) menetas dan mewarisi 75% keterampilan, makanan favorit, dan warnanya. Koin, aksesori, dekorasi, album, dan prestasimu tetap.`
+    : `${p.name} akan masuk Galeri Keluarga dan mewariskan setengah keterampilannya. Koin, aksesori, dekorasi, album, dan prestasimu tetap.`;
+  if (p.nest) $('#retireSpecies').replaceChildren(); else speciesPicker($('#retireSpecies'), p.species);
   $('#retireError').textContent = '';
   $('#retire').hidden = false;
 }
@@ -811,7 +888,7 @@ $('#retireForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
   const f = new FormData(form);
-  const ok = await act({ type: 'retire', name: f.get('name'), species: f.get('species') }, () => { scene.confetti(450, 300, 50); buzz([30, 60, 30]); });
+  const ok = await act({ type: 'retire', name: f.get('name'), species: f.get('species') || S.pet.nest?.species }, () => { scene.confetti(450, 300, 50); buzz([30, 60, 30]); });
   if (ok) { $('#retire').hidden = true; form.reset(); showTab('collection'); } else $('#retireError').textContent = 'Belum bisa pensiun — lihat pesan di atas.';
 });
 
@@ -1100,6 +1177,99 @@ function maybeShowAway(events) {
   $('#away').hidden = false;
 }
 $('#awayClose').addEventListener('click', () => { $('#away').hidden = true; });
+
+// ---------- Taman teman ----------
+let friendScene = null, friendRaf = 0;
+function stopFriendLoop() { cancelAnimationFrame(friendRaf); friendRaf = 0; }
+function showFriend(f) {
+  $('#friendView').hidden = false;
+  const cv = $('#friendCanvas');
+  friendScene ??= new Scene(cv, { reducedMotion: reduced });
+  friendScene._resize();
+  const fp = friendPet(f);
+  friendScene.getHour = scene.getHour;
+  friendScene.setPet(fp);
+  Object.assign(friendScene, { world: { weather: 'cerah', event: null }, theme: fp.decor.theme, decor: fp.decor.placed, decorSlots: fp.decor.slots, house: fp.house, houseCost: S.config.house.cost, treasure: null, visitor: null });
+  const tint = f.tint ? S.config.tints[f.tint] : null;
+  $('#friendInfo').textContent = `${f.name} · ${SPECIES[f.species]} ${STAGE[f.stage].toLowerCase()} · Lv ${f.level}${f.shiny ? ' ✨' : ''}${f.form === 'radiant' ? ' 🌟' : ''}${tint ? ` · ${tint.emoji} ${tint.label}` : ''}${f.trait ? ` · ${S.config.traits[f.trait].label}` : ''}`;
+  stopFriendLoop();
+  let last = performance.now();
+  const loop = (now) => {
+    friendScene.update(Math.min(0.05, (now - last) / 1000)); last = now;
+    friendScene.draw();
+    friendRaf = requestAnimationFrame(loop);
+  };
+  friendRaf = requestAnimationFrame(loop);
+}
+function openFriend() {
+  if (!S?.pet) return;
+  $('#myCode').value = makeCode(S.pet);
+  $('#friendError').textContent = '';
+  $('#friendView').hidden = true;
+  $('#friendCode').value = '';
+  $('#friend').hidden = false;
+}
+function closeFriend() { $('#friend').hidden = true; stopFriendLoop(); }
+$('#friendBtn').addEventListener('click', () => { sfx.click(); openFriend(); });
+$('#friendClose').addEventListener('click', closeFriend);
+$('#copyCode').addEventListener('click', async () => {
+  const code = $('#myCode').value;
+  try {
+    if (navigator.share) { try { await navigator.share({ title: 'Taman Tamagotchi-ku', text: `Kunjungi tamanku! Tempel kode ini di Tamagotchi Taman (tombol 🤝):\n${code}` }); return; } catch (err) { if (err.name === 'AbortError') return; } }
+    await navigator.clipboard.writeText(code);
+    toast('Kode taman disalin 📋 — kirim ke temanmu');
+  } catch { $('#myCode').select(); toast('Salin manual: tekan Ctrl/Cmd+C', true); }
+});
+$('#friendGo').addEventListener('click', async () => {
+  const r = parseCode($('#friendCode').value, S.config);
+  if (!r.ok) { $('#friendError').textContent = r.error; return; }
+  $('#friendError').textContent = '';
+  showFriend(r.friend);
+  if (r.friend.id === S.pet.id) { $('#friendError').textContent = 'Ini tamanmu sendiri — tidak ada hadiah kunjungan.'; return; }
+  await act({ type: 'visit', fid: r.friend.id, fname: r.friend.name }, () => scene.burst(scene.x, scene.y - 80, 'heart', 8));
+});
+
+// ---------- Pengingat (notifikasi) ----------
+const NOTIF_KEY = 'tamagotchi:notify';
+const NOTIF_LAST = 'tamagotchi:notifyLast';
+const notifSupported = 'Notification' in window;
+const notifOn = () => notifSupported && Notification.permission === 'granted' && store.get(NOTIF_KEY, 'off') === 'on';
+function renderNotifyBtn() {
+  const b = $('#notifyBtn');
+  b.hidden = !notifSupported;
+  b.textContent = notifOn() ? '🔔' : '🔕';
+  b.title = notifOn() ? 'Pengingat nyala (saat aplikasi terbuka di latar belakang)' : 'Nyalakan pengingat perawatan';
+}
+async function showNotice(a) {
+  const opts = { body: a.body, tag: a.key, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png' };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    if (reg?.showNotification) return await reg.showNotification(a.title, opts);
+  } catch { /* lanjut ke cara biasa */ }
+  try { new Notification(a.title, opts); } catch { /* abaikan */ }
+}
+function maybeNotify() {
+  if (!S?.pet || !document.hidden || !notifOn()) return;
+  let last = {};
+  try { last = JSON.parse(store.get(NOTIF_LAST, '{}')) || {}; } catch { last = {}; }
+  const list = alertsFor(S.pet, S.world, last, Date.now()).slice(0, 2);
+  if (!list.length) return;
+  for (const a of list) { last[a.key] = Date.now(); showNotice(a); }
+  store.set(NOTIF_LAST, JSON.stringify(last));
+}
+$('#notifyBtn').addEventListener('click', async () => {
+  sfx.click();
+  if (notifOn()) { store.set(NOTIF_KEY, 'off'); renderNotifyBtn(); return toast('Pengingat dimatikan'); }
+  if (Notification.permission === 'denied') return toast('Notifikasi diblokir di pengaturan peramban. Izinkan dulu untuk situs ini.', true);
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (perm !== 'granted') return toast('Izin notifikasi tidak diberikan.', true);
+  store.set(NOTIF_KEY, 'on');
+  renderNotifyBtn();
+  toast('Pengingat nyala 🔔 Muncul saat aplikasi terbuka di latar belakang (belum bisa saat ditutup total).');
+  showNotice({ key: 'test', title: `🔔 Pengingat aktif`, body: 'Kamu akan diberi tahu saat peliharaanmu butuh perhatian.' });
+});
+renderNotifyBtn();
+setInterval(maybeNotify, 30000);
 
 // ---------- Polling ----------
 async function poll() {

@@ -288,7 +288,118 @@ const rhythm = {
   score: (s) => s.score,
 };
 
-const GAMES = { stars, memory, food, rhythm };
+// ---------- 5) Memancing ----------
+const FISH = [['🐟', 1], ['🐠', 2], ['🦑', 2], ['👑', 5]];
+const JUNK = [['🥾', -2], ['🐡', -3]];
+const fishing = {
+  init: (o) => ({ x: GW / 2, tx: GW / 2, fish: [], pops: [], score: 0, spawn: 0.2, dur: 28, slow: o.reducedMotion, hook: 0, cd: 0 }),
+  down(s, p) { s.tx = p.x; },
+  move(s, p) { s.tx = p.x; },
+  update(s, dt, t) {
+    s.x += (s.tx - s.x) * Math.min(1, dt * 12);
+    s.x = Math.max(30, Math.min(GW - 30, s.x));
+    const cyc = (t * (s.slow ? 0.9 : 1.3)) % 2; // kail naik-turun otomatis
+    s.hook = 70 + (GH - 130) * (cyc < 1 ? cyc : 2 - cyc);
+    s.cd = Math.max(0, s.cd - dt);
+    s.spawn -= dt;
+    if (s.spawn <= 0 && t < s.dur) {
+      const junk = Math.random() < 0.22;
+      const [e, v] = junk ? JUNK[Math.floor(Math.random() * JUNK.length)] : (Math.random() < 0.1 ? FISH[3] : FISH[Math.floor(Math.random() * 3)]);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      s.fish.push({ x: dir > 0 ? -30 : GW + 30, y: rnd(110, GH - 40), vx: dir * ((s.slow ? 55 : 80) + Math.random() * 60 + t * 2), e, val: v, dir, ph: rnd(0, 6) });
+      s.spawn = Math.max(0.35, 0.8 - t * 0.012);
+    }
+    for (const f of s.fish) {
+      f.x += f.vx * dt; f.ph += dt * 4;
+      const fy = f.y + Math.sin(f.ph) * 6;
+      if (!f.got && s.cd <= 0 && Math.abs(f.x - s.x) < 28 && Math.abs(fy - s.hook) < 24) {
+        f.got = true; s.cd = 0.15;
+        s.score = Math.max(0, s.score + f.val);
+        s.pops.push({ x: f.x, y: fy, t: 0, text: f.val > 0 ? `+${f.val}` : `${f.val}`, color: f.val > 0 ? '#6ee7a8' : '#ff6b81' });
+        if (f.val > 0) { sfx.coin(); buzz(8); } else { sfx.bad(); buzz([20, 40, 20]); }
+      }
+    }
+    s.fish = s.fish.filter((f) => !f.got && f.x > -50 && f.x < GW + 50);
+  },
+  draw(c, s, t) {
+    bg(c, '#c9f0ff', '#4aa3d4');
+    c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(0, 62, GW, 3);
+    c.fillStyle = 'rgba(8,60,110,.18)'; c.fillRect(0, 66, GW, GH - 66);
+    for (let i = 0; i < 6; i++) { c.fillStyle = 'rgba(255,255,255,.08)'; c.beginPath(); c.arc((i * 97 + t * 14) % GW, 90 + (i % 3) * 80, 5 + (i % 3) * 2, 0, 7); c.fill(); }
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (const f of s.fish) {
+      c.save(); c.translate(f.x, f.y + Math.sin(f.ph) * 6); c.scale(-f.dir, 1);
+      c.font = '32px system-ui'; c.fillText(f.e, 0, 0); c.restore();
+    }
+    // joran, tali & kail
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(s.x, 48); c.lineTo(s.x, s.hook); c.stroke();
+    c.font = '24px system-ui'; c.fillText('🪝', s.x, s.hook + 8);
+    c.font = '40px system-ui'; c.fillText('⛵', s.x, 38);
+    c.textBaseline = 'alphabetic';
+    pops(c, s.pops, 1 / 60);
+    hud(c, `Skor ${s.score}`, s.dur - t, s.dur);
+    if (t < 3) { c.textAlign = 'center'; c.font = '600 14px system-ui'; c.fillStyle = 'rgba(255,255,255,.9)'; c.fillText('Geser perahu — hindari 🥾 dan 🐡', GW / 2, 84); c.textAlign = 'start'; }
+  },
+  done: (s, t) => t >= s.dur + 0.4,
+  score: (s) => s.score,
+};
+
+// ---------- 6) Lari Rintangan ----------
+const GROUND = 280;
+const runner = {
+  init: (o) => ({ y: GROUND, vy: 0, obs: [], pops: [], score: 0, spawn: 1, dur: 28, slow: o.reducedMotion, stun: 0, scroll: 0, emoji: o.emoji || '🐾' }),
+  down(s) { if (s.y >= GROUND - 1 && s.stun <= 0) { s.vy = -560; sfx.pop(); } },
+  update(s, dt, t) {
+    const speed = (s.slow ? 190 : 250) + t * 6;
+    s.scroll += speed * dt;
+    s.vy += 1500 * dt; s.y += s.vy * dt;
+    if (s.y > GROUND) { s.y = GROUND; s.vy = 0; }
+    s.stun = Math.max(0, s.stun - dt);
+    s.spawn -= dt;
+    if (s.spawn <= 0 && t < s.dur) {
+      const r = Math.random();
+      if (r < 0.62) s.obs.push({ x: GW + 30, kind: 'rock', e: ['🪨', '🌵', '🪵'][Math.floor(Math.random() * 3)], w: 24, h: 34, passed: false });
+      else s.obs.push({ x: GW + 30, kind: 'star', e: '⭐', y: GROUND - rnd(70, 130), got: false });
+      s.spawn = Math.max(0.55, rnd(0.9, 1.5) - t * 0.012);
+    }
+    for (const o of s.obs) {
+      o.x -= speed * dt;
+      if (o.kind === 'rock') {
+        if (!o.passed && o.x < 70 - 22) { o.passed = true; if (!o.hit) { s.score += 1; s.pops.push({ x: 70, y: s.y - 70, t: 0, text: '+1' }); } }
+        if (!o.hit && s.stun <= 0 && Math.abs(o.x - 70) < 26 && s.y > GROUND - o.h + 4) {
+          o.hit = true; s.stun = 0.7; s.score = Math.max(0, s.score - 2);
+          s.pops.push({ x: 70, y: s.y - 70, t: 0, text: '-2', color: '#ff6b81' }); sfx.bad(); buzz([20, 40, 20]);
+        }
+      } else if (!o.got && Math.abs(o.x - 70) < 30 && Math.abs(o.y - (s.y - 30)) < 36) {
+        o.got = true; s.score += 3; s.pops.push({ x: 70, y: s.y - 80, t: 0, text: '+3' }); sfx.coin(); buzz(8);
+      }
+    }
+    s.obs = s.obs.filter((o) => o.x > -50 && !o.got);
+  },
+  draw(c, s, t) {
+    bg(c, '#8fd3ff', '#d9f1ff');
+    c.fillStyle = 'rgba(255,255,255,.7)';
+    for (let i = 0; i < 4; i++) { const x = ((i * 190 - s.scroll * 0.2) % (GW + 120) + GW + 120) % (GW + 120) - 60; c.beginPath(); c.ellipse(x, 60 + (i % 2) * 34, 38, 14, 0, 0, 7); c.fill(); }
+    c.fillStyle = '#5fbe74'; c.fillRect(0, GROUND + 8, GW, GH - GROUND - 8);
+    c.fillStyle = '#4fae67'; for (let i = 0; i < 12; i++) c.fillRect(((i * 60 - s.scroll) % (GW + 60) + GW + 60) % (GW + 60) - 30, GROUND + 22, 26, 4);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (const o of s.obs) { c.font = o.kind === 'star' ? '30px system-ui' : '38px system-ui'; c.fillText(o.e, o.x, o.kind === 'star' ? o.y : GROUND - 8); }
+    c.save(); c.translate(70, s.y - 4);
+    if (s.stun > 0) c.rotate(Math.sin(t * 40) * 0.25);
+    c.globalAlpha = s.stun > 0 && Math.floor(t * 14) % 2 ? 0.45 : 1;
+    c.font = '44px system-ui'; c.fillText(s.emoji, 0, -14 + (s.y >= GROUND - 1 ? Math.abs(Math.sin(t * 14)) * -5 : 0));
+    c.restore();
+    c.textBaseline = 'alphabetic';
+    pops(c, s.pops, 1 / 60);
+    hud(c, `Skor ${s.score}`, s.dur - t, s.dur);
+    if (t < 3) { c.textAlign = 'center'; c.font = '600 14px system-ui'; c.fillStyle = 'rgba(20,40,70,.85)'; c.fillText('Ketuk untuk melompat — kumpulkan ⭐', GW / 2, 56); c.textAlign = 'start'; }
+  },
+  done: (s, t) => t >= s.dur + 0.4,
+  score: (s) => s.score,
+};
+
+const GAMES = { stars, memory, food, rhythm, fishing, runner };
 
 /** Mainkan satu mini-game. */
 export function playGame(id, canvas, opts = {}) {

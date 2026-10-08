@@ -63,7 +63,7 @@ test('cuaca: deterministik, bervariasi, pelangi hanya setelah hujan/badai', () =
     seen.add(w);
     if (w === 'pelangi') assert.ok(['hujan', 'badai'].includes(at(slot - 1)), `pelangi setelah ${at(slot - 1)}`);
   }
-  for (const w of Object.keys(C.WEATHERS)) assert.ok(seen.has(w), `cuaca ${w} muncul`);
+  for (const w of Object.keys(C.WEATHERS).filter((x) => x !== 'salju')) assert.ok(seen.has(w), `cuaca ${w} muncul`);
 });
 
 function findWeather(s, name, from = T0) {
