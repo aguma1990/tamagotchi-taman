@@ -680,7 +680,7 @@ function renderShop() {
   } else if (shopTab === 'acc') {
     for (const slot of ['head', 'face', 'neck']) {
       shop.append(el('h4', { text: SLOT_LABEL[slot] }));
-      for (const [id, it] of Object.entries(cfg.cosmetics).filter(([, v]) => v.slot === slot && (!v.rare || p.inventory.includes(id)))) {
+      for (const [id, it] of Object.entries(cfg.cosmetics).filter(([cid, v]) => v.slot === slot && (!v.rare || p.inventory.includes(cid)))) {
         const owned = p.inventory.includes(id), on = p.equipped[slot] === id;
         const button = owned
           ? el('button', { type: 'button', text: on ? 'Lepas' : 'Pakai', onclick: () => act({ type: 'equip', item: id }, () => sfx.click()) })
