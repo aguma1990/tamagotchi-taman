@@ -272,7 +272,7 @@ test('harta karun muncul seiring waktu & tidak menumpuk', () => {
   const s = hatched();
   s.treasure = null;
   engine.advance(s, s.lastTickAt + 6 * HOUR);
-  assert.ok(s.treasure && s.treasure.x >= 100 && s.treasure.x < 800);
+  assert.ok(s.treasure && engine.C.TREASURE_SPOTS.includes(s.treasure.x), 'harta muncul di titik aman');
   assert.ok(s.treasure.amount >= 3 && s.treasure.amount <= 8);
 });
 

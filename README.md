@@ -85,6 +85,20 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 - **Obrolan** lokal yang mengingat namamu, sesuai suasana hati, cuaca, dan kebiasaan.
 - **Kartu peliharaan** PNG untuk dibagikan, musik latar generatif, efek suara, getar di HP.
 
+## Rumah, toko, dan taman yang hidup
+
+- **Rumah 🏠** (🪙 80, level 2) harus dibeli. **Tanpa rumah, hujan menurunkan kesehatan dengan cepat** (hujan ~45/jam-game, badai ~90) dan
+  memperbesar risiko sakit. Dengan rumah, peliharaan **berteduh otomatis** saat hujan, **tidur di dalam** (energi pulih +30%), dan bisa
+  dimasukkan/dikeluarkan dengan mengetuk rumah. Saat ditinggal (offline) hujan tidak menurunkan kesehatan di bawah 35.
+- **Toko 🛍️** selalu ada di taman. Setiap kali kamu membeli sesuatu (aksesori, dekorasi, tema, rumah) peliharaan **berjalan ke toko,
+  masuk, lalu keluar membawa tas belanja**. Ketuk toko untuk membuka tab Toko.
+- **Tata letak tanpa tumpang tindih:** posisi wahana, rumah, toko, dan tempat dekorasi didefinisikan di `public/layout.mjs` dan **diuji otomatis**
+  (`test/layout.test.js`). Dekorasi menempati *slot*; bila slot penuh, dekorasi disimpan dulu.
+- **Tampilan utama tetap:** taman bermain (dan kolom status) menempel di layar saat digulir; di HP bilah aksi menetap di bawah.
+- **Lebih hidup:** burung melintas, kupu-kupu & kunang-kunang, rumput bergoyang, kilau air, bayangan mengikuti matahari, mata peliharaan
+  mengikuti kursor, gerak santai (menoleh, menguap, duduk, mengendus, melambai), sapaan pagi/siang/sore/malam, dan suasana suara
+  (kicau burung, jangkrik, hujan) lewat tombol 🎵.
+
 ## Karakter & kebutuhan
 
 Lima jenis peliharaan: **Mochi** (kucing), **Bubu** (beruang), **Leafy** (tunas), **Babi** 🐷, dan **Trenggiling** 🌰 —
@@ -120,6 +134,6 @@ Praktik yang diterapkan: nol dependensi, bind hanya ke localhost, validasi Host/
 validasi semua aksi di server (klien tidak dipercaya), shutdown yang rapi, `prefers-reduced-motion`.
 
 ```bash
-npm test      # 74 tes (engine, dunia & generasi, persistensi, versi web): engine, catch-up offline, persistensi, pemulihan backup
+npm test      # 110 tes (engine, rumah & hujan, tata letak, generasi, persistensi, uji acak, server, versi web): engine, catch-up offline, persistensi, pemulihan backup
 PORT=4000 npm start   # ganti port (opsional)
 ```

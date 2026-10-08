@@ -95,6 +95,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'fashion', icon: '🎩', label: 'Fashionista', desc: 'Miliki 3 aksesori', reward: 20, test: (s) => s.inventory.length >= 3 },
   { id: 'decor5', icon: '🌷', label: 'Tukang Taman', desc: 'Miliki 5 dekorasi taman', reward: 25, test: (s) => s.decor.owned.length >= 5 },
   { id: 'skill5', icon: '🏃', label: 'Atlet', desc: 'Capai level 5 di salah satu keterampilan', reward: 25, test: (s) => Object.values(s.skills).some((k) => k.lv >= 5) },
+  { id: 'house', icon: '🏠', label: 'Punya Rumah', desc: 'Membeli rumah untuk peliharaan', reward: 20, test: (s) => s.house.owned },
   { id: 'morph3', icon: '🎭', label: 'Si Bunglon', desc: 'Ganti karakter 3 kali', reward: 15, test: (s) => s.totals.morphs >= 3 },
   { id: 'album8', icon: '📖', label: 'Kolektor', desc: 'Kumpulkan 8 stiker berbeda', reward: 30, test: (s) => Object.keys(s.album).length >= 8 },
   { id: 'shiny', icon: '✨', label: 'Langka!', desc: 'Menetaskan peliharaan warna langka', reward: 60, test: (s) => s.shiny && s.stage !== 'egg' },
@@ -270,6 +271,22 @@ const bump = (s, k) => { s.pc[k] = (s.pc[k] || 0) + 1; };
 const skillLv = (s, k) => s.skills[k]?.lv || 0;
 const hasTrait = (s, t) => s.trait === t;
 
+/** Pasang dekorasi di tempat kosong yang cocok. Mengembalikan pesan galat bila penuh, atau null bila berhasil. */
+function placeDecor(s, id, alreadyListed = false) {
+  const def = C.DECOR[id];
+  const used = new Set(Object.entries(s.decor.slots).filter(([k]) => k !== id).map(([, v]) => v));
+  const slot = def.slots.find((x) => !used.has(x));
+  if (!slot) return `Tempat untuk ${def.label.toLowerCase()} sudah penuh. Simpan dekorasi lain dulu.`;
+  s.decor.slots[id] = slot;
+  if (!alreadyListed && !s.decor.placed.includes(id)) s.decor.placed.push(id);
+  return null;
+}
+function unplaceDecor(s, id) {
+  const i = s.decor.placed.indexOf(id);
+  if (i >= 0) s.decor.placed.splice(i, 1);
+  delete s.decor.slots[id];
+}
+
 /** Lengkapi field baru pada save lama (migrasi aman, idempotent). */
 function migrate(s, now) {
   s.inventory ??= [];
@@ -294,9 +311,18 @@ function migrate(s, now) {
   s.album ??= {};
   s.albumClaimed ??= [];
   s.decor ??= { owned: [], placed: [], theme: 'default', themes: ['default'] };
+  s.decor.slots ??= {};
+  for (const id of [...s.decor.placed]) { // save lama: pastikan tiap dekorasi terpasang punya tempat
+    if (!C.DECOR[id]) { s.decor.placed.splice(s.decor.placed.indexOf(id), 1); continue; }
+    if (!s.decor.slots[id] || Object.entries(s.decor.slots).some(([k, v]) => k !== id && v === s.decor.slots[id])) {
+      delete s.decor.slots[id];
+      if (placeDecor(s, id, true)) s.decor.placed.splice(s.decor.placed.indexOf(id), 1);
+    }
+  }
   s.visitor ??= null;
   s.eventClaimed ??= {};
   s.memory ??= {};
+  s.house ??= { owned: false, inside: false, reason: null, warned: -1 };
   if (!Number.isFinite(s.coins)) s.coins = 0;
   rollDaily(s, now);
   rollWeekly(s, now);
@@ -433,6 +459,25 @@ function pickVisitor(s, t) {
   return pickWeighted(weights, rand(s));
 }
 
+/** Rumah: berteduh otomatis saat hujan, tidur di dalam, keluar saat reda/bangun. */
+function syncHouse(s, wet, events, t) {
+  const h = s.house;
+  if (!h.owned) return;
+  if (wet && !h.inside) {
+    h.inside = true; h.reason = 'rain';
+    events.push(ev(t, 'house', `🏠 ${s.name} berteduh di rumah karena hujan.`));
+  } else if (s.sleeping && !h.inside) {
+    h.inside = true; h.reason = 'sleep';
+  } else if (h.inside) {
+    if (h.reason === 'sleep' && !s.sleeping) {
+      if (wet) h.reason = 'rain'; else { h.inside = false; h.reason = null; }
+    } else if (h.reason === 'rain' && !wet) {
+      if (s.sleeping) h.reason = 'sleep';
+      else { h.inside = false; h.reason = null; events.push(ev(t, 'house', `☀️ Hujan reda, ${s.name} keluar dari rumah.`)); }
+    }
+  }
+}
+
 function stepOne(s, t, ctx, mult) {
   const speed = CONFIG.speed;
   s.ageMinutes += speed;
@@ -444,13 +489,28 @@ function stepOne(s, t, ctx, mult) {
   const tg = skillLv(s, 'tangguh');
   const keep = 1 - 0.03 * tg; // keterampilan Tangguh: kebutuhan turun lebih lambat
 
+  // cuaca & rumah: tanpa rumah, hujan/badai langsung menggerogoti kesehatan
+  const wx = weatherAt(s, t);
+  const wet = wx === 'hujan' || wx === 'badai';
+  syncHouse(s, wet, ctx.events, t);
+  const exposed = wet && !s.house.inside;
+  if (exposed) {
+    const slot = Math.floor(t / C.WEATHER_SLOT_MS);
+    if (s.house.warned !== slot) {
+      s.house.warned = slot;
+      ctx.events.push(ev(t, 'weather', s.house.owned
+        ? `🌧️ ${s.name} kehujanan di luar! Kesehatannya turun.`
+        : `🌧️ ${wx === 'badai' ? 'Badai' : 'Hujan'}! ${s.name} kehujanan dan kesehatannya turun cepat. Beli rumah di Toko agar ia bisa berteduh.`));
+    }
+  }
+
   if (s.sleeping) {
     const r = CONFIG.asleep;
     st.hunger -= r.hunger * perMin * mult;
     st.happiness -= r.happiness * perMin * mult;
     st.hygiene -= r.hygiene * perMin * mult;
     st.thirst -= r.thirst * perMin * mult;
-    st.energy -= r.energy * perMin; // negatif = pulih
+    st.energy -= r.energy * perMin * (s.house.inside ? 1.3 : 1); // negatif = pulih; di rumah lebih nyenyak
     if (st.energy >= 100) {
       s.sleeping = false;
       ctx.events.push(ev(t, 'wake', `☀️ ${s.name} bangun dengan segar.`));
@@ -463,6 +523,7 @@ function stepOne(s, t, ctx, mult) {
     st.hygiene -= (r.hygiene + s.poop * 1.2) * perMin * mult * keep * (hasTrait(s, 'rapi') ? 0.75 : 1);
     st.thirst -= r.thirst * perMin * mult * keep;
     if (s.sick) st.happiness -= 3 * perMin * mult;
+    if (exposed) st.happiness -= (wx === 'badai' ? 6 : 3) * perMin * mult;
 
     if (s.poop < CONFIG.maxPoop && rand(s) < (speed / 150) * mult) {
       s.poop += 1;
@@ -482,6 +543,8 @@ function stepOne(s, t, ctx, mult) {
   if (st.hygiene < 15) dh -= 1.5;
   if (st.happiness < 20) dh -= 1;
   if (s.sick) dh -= 3;
+  // saat ditinggal (offline), hujan tidak menurunkan kesehatan di bawah 35 — drama saat dimainkan, bukan hukuman saat pergi
+  if (exposed && !(mult < 1 && st.health <= 35)) dh -= C.RAIN[wx];
   if (dh < 0) dh *= mult;
   else if (!s.sick && st.hunger >= 40 && st.energy >= 40 && st.hygiene >= 40) dh += 3;
   st.health += dh * perMin;
@@ -492,6 +555,7 @@ function stepOne(s, t, ctx, mult) {
     if (st.hygiene < 25) p += 1 / 240;
     if (s.poop >= 3) p += 1 / 240;
     if (st.health < 30) p += 1 / 480;
+    if (exposed) p += wx === 'badai' ? 1 / 20 : 1 / 60;
     if (p > 0 && rand(s) < p * speed * mult * (1 - 0.08 * tg)) {
       s.sick = true;
       ctx.events.push(ev(t, 'sick', `🤒 ${s.name} jatuh sakit. Beri obat!`));
@@ -499,9 +563,9 @@ function stepOne(s, t, ctx, mult) {
   }
 
   // harta karun (lebih sering & lebih besar saat ada pelangi)
-  const rainbow = weatherAt(s, t) === 'pelangi';
+  const rainbow = wx === 'pelangi';
   if (!s.treasure && rand(s) < (rainbow ? 1 / 6 : 1 / 25)) {
-    s.treasure = { x: 100 + Math.floor(rand(s) * 700), amount: rainbow ? 8 + Math.floor(rand(s) * 7) : 3 + Math.floor(rand(s) * 6), t, rainbow };
+    s.treasure = { x: C.TREASURE_SPOTS[Math.floor(rand(s) * C.TREASURE_SPOTS.length)], amount: rainbow ? 8 + Math.floor(rand(s) * 7) : 3 + Math.floor(rand(s) * 6), t, rainbow };
     ctx.events.push(ev(t, 'treasure', rainbow ? '🌈 Ada harta karun di ujung pelangi!' : '💰 Ada harta karun berkilau di taman!'));
   }
 
@@ -691,6 +755,7 @@ function doAction(s, now, a, events, out = {}) {
       if (s.sleeping) return `${s.name} sudah tidur.`;
       if (s.stats.energy >= 95) return `${s.name} belum mengantuk.`;
       s.sleeping = true;
+      if (s.house.owned && !s.house.inside) { s.house.inside = true; s.house.reason = 'sleep'; }
       events.push(ev(now, 'sleep', `😴 ${s.name} tidur.`));
       return null;
     }
@@ -698,6 +763,7 @@ function doAction(s, now, a, events, out = {}) {
       if (!s.sleeping) return `${s.name} sudah bangun.`;
       s.sleeping = false;
       s.stats.happiness = clamp(s.stats.happiness - (s.stats.energy < 60 ? 6 : 0));
+      syncHouse(s, ['hujan', 'badai'].includes(weatherAt(s, now)), events, now);
       events.push(ev(now, 'wake', `☀️ ${s.name} dibangunkan.`));
       return null;
     }
@@ -721,6 +787,7 @@ function doAction(s, now, a, events, out = {}) {
       const e = guard(needHatched, needAwake);
       if (e) return e;
       if (s.level < item.unlock) return `${item.label} terbuka di level ${item.unlock}.`;
+      if (s.house.inside) return s.house.reason === 'rain' ? `Sedang hujan — ${s.name} berteduh di rumah. Coba mini-game di dalam!` : `${s.name} sedang di dalam rumah. Ketuk rumah untuk mengeluarkannya.`;
       const cost = Math.max(1, Math.round(item.energy * (1 - 0.05 * skillLv(s, 'lari')) * (hasTrait(s, 'petualang') ? 0.8 : 1)));
       if (s.stats.energy < cost + 5) return `${s.name} terlalu lelah.`;
       const key = `play:${a.item}`;
@@ -957,6 +1024,32 @@ function doAction(s, now, a, events, out = {}) {
       s.equipped[it.slot] = s.equipped[it.slot] === a.item ? null : a.item;
       return null;
     }
+    case 'houseBuy': {
+      if (s.house.owned) return 'Sudah punya rumah.';
+      if (s.level < C.HOUSE.unlock) return `Rumah terbuka di level ${C.HOUSE.unlock}.`;
+      if (s.coins < C.HOUSE.cost) return 'Koin tidak cukup.';
+      s.coins -= C.HOUSE.cost;
+      s.house.owned = true;
+      events.push(ev(now, 'buy', `🏠 Rumah baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
+      return null;
+    }
+    case 'home': {
+      const h = s.house;
+      if (!h.owned) return 'Belum punya rumah. Beli di Toko → Rumah.';
+      const e = guard(needHatched);
+      if (e) return e;
+      const wet = ['hujan', 'badai'].includes(weatherAt(s, now));
+      if (h.inside) {
+        if (h.reason === 'sleep') return `${s.name} sedang tidur di rumah.`;
+        if (wet) return `Masih hujan — ${s.name} tetap di dalam rumah.`;
+        h.inside = false; h.reason = null;
+        events.push(ev(now, 'house', `🚪 ${s.name} keluar dari rumah.`));
+      } else {
+        h.inside = true; h.reason = wet ? 'rain' : 'manual';
+        events.push(ev(now, 'house', `🏠 ${s.name} masuk ke rumah.`));
+      }
+      return null;
+    }
     case 'decorBuy': {
       const it = own(C.DECOR, a.item);
       if (!it) return 'Dekorasi tidak dikenal.';
@@ -965,16 +1058,15 @@ function doAction(s, now, a, events, out = {}) {
       if (s.coins < it.cost) return 'Koin tidak cukup.';
       s.coins -= it.cost;
       s.decor.owned.push(a.item);
-      s.decor.placed.push(a.item);
-      events.push(ev(now, 'buy', `🏡 ${it.label} dipasang di taman.`));
+      const full = placeDecor(s, a.item);
+      events.push(ev(now, 'buy', full ? `🏡 ${it.label} dibeli, tetapi tempatnya penuh — disimpan dulu.` : `🏡 ${it.label} dipasang di taman.`));
       return null;
     }
     case 'decorPlace': {
       if (!own(C.DECOR, a.item)) return 'Dekorasi tidak dikenal.';
       if (!s.decor.owned.includes(a.item)) return 'Belum dimiliki.';
-      const i = s.decor.placed.indexOf(a.item);
-      if (i >= 0) s.decor.placed.splice(i, 1); else s.decor.placed.push(a.item);
-      return null;
+      if (s.decor.placed.includes(a.item)) { unplaceDecor(s, a.item); return null; }
+      return placeDecor(s, a.item);
     }
     case 'themeBuy': {
       const it = own(C.THEMES, a.theme);
@@ -1006,7 +1098,11 @@ function perform(s, now, action) {
   const before = { ...s.stats, coins: s.coins, xp: s.xp };
   const out = {};
   const error = doAction(s, now, action || {}, events, out);
-  if (!error) { checkAchievements(s, now, events); s.memory.interact = now; }
+  if (!error) {
+    syncHouse(s, ['hujan', 'badai'].includes(weatherAt(s, now)), events, now);
+    checkAchievements(s, now, events);
+    s.memory.interact = now;
+  }
   if (error) return { ok: false, error, events: ctx.events, samples: ctx.samples, dirty: ctx.stepped };
   const effects = {};
   for (const k of STAT_KEYS) {
@@ -1033,6 +1129,9 @@ function buildConfig() {
     dayRealMinutes: CONFIG.dayRealMinutes,
     dayStartHour: CONFIG.dayStartHour,
     decor: C.DECOR,
+    decorSlots: C.DECOR_SLOTS,
+    house: C.HOUSE,
+    rainDamage: C.RAIN,
     themes: C.THEMES,
     stickers: C.STICKERS,
     albumRewards: C.ALBUM_REWARDS,

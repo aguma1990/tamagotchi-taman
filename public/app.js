@@ -34,7 +34,7 @@ const ACT_MSG = {
   minigame: 'Seru! Main lagi yuk!', medicine: 'Udah enakan!', collect: 'Dapat harta!', buy: 'Keren, aku suka!',
   greet: 'Halo, teman baru!', train: 'Huff, capek tapi senang!', decorBuy: 'Tamannya makin bagus!',
 };
-const TOAST_TYPES = new Set(['achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor', 'morph']);
+const TOAST_TYPES = new Set(['achievement', 'quest', 'levelup', 'treasure', 'hatch', 'evolve', 'sick', 'daily', 'sticker', 'record', 'weekly', 'event', 'skill', 'lucky', 'retire', 'visitor', 'morph', 'weather', 'house']);
 
 let S = null; // snapshot terakhir dari server
 let clockOffset = 0; // waktu server - waktu klien
@@ -90,7 +90,7 @@ function applySound() {
 function applyMusic() {
   $('#musicBtn').textContent = musicWanted() ? '🎵' : '🎶';
   $('#musicBtn').classList.toggle('on', musicWanted());
-  $('#musicBtn').title = musicWanted() ? 'Musik latar: nyala' : 'Musik latar: mati';
+  $('#musicBtn').title = musicWanted() ? 'Musik & suasana: nyala' : 'Musik & suasana (kicau burung, jangkrik, hujan): mati';
   if (musicWanted()) music.start(); else music.stop();
 }
 $('#soundBtn').addEventListener('click', () => {
@@ -146,11 +146,24 @@ let last = performance.now();
   requestAnimationFrame(loop);
 })(last);
 
+// tinggi taman (yang menempel) dipakai agar gulir otomatis tidak tertutup olehnya
+new ResizeObserver(() => document.documentElement.style.setProperty('--stage-h', `${$('.stage').offsetHeight}px`)).observe($('.stage'));
+
+// mode ringkas: di layar pendek, taman mengecil saat halaman digulir (dengan histeresis agar tidak berkedip)
+addEventListener('scroll', () => {
+  const stage = $('.stage');
+  const short = innerHeight < 900 && innerWidth > 980;
+  if (short && scrollY > 60) stage.classList.add('compact');
+  else if (!short || scrollY < 10) stage.classList.remove('compact');
+}, { passive: true });
+
 const canvas = $('#scene');
 const tip = $('#tooltip');
 canvas.addEventListener('pointermove', (e) => {
-  const hit = scene.hitTest(scene.toWorld(e));
-  scene.hover = hit?.type === 'item' ? hit.key : hit?.type === 'treasure' ? 'treasure' : hit?.type === 'visitor' ? 'visitor' : null;
+  const wp = scene.toWorld(e);
+  scene.lookAt(wp.x);
+  const hit = scene.hitTest(wp);
+  scene.hover = hit?.type === 'item' || hit?.type === 'building' ? hit.key : hit?.type === 'treasure' ? 'treasure' : hit?.type === 'visitor' ? 'visitor' : null;
   canvas.style.cursor = hit ? 'pointer' : 'default';
   if (hit?.type === 'pet' && S?.pet) {
     const r = canvas.parentElement.getBoundingClientRect();
@@ -171,6 +184,7 @@ canvas.addEventListener('click', (e) => {
   if (hit.type === 'visitor') {
     return act({ type: 'greet' }, () => { scene.burst(scene.x, scene.y - 80, 'heart', 6); scene.confetti(scene.x, scene.y - 90, 14); sfx.sticker(); buzz(14); });
   }
+  if (hit.type === 'building') return hit.key === 'shop' ? openShop('acc') : tapHouse();
   if (hit.type === 'pet') return doCuddle();
   act({ type: 'play', item: hit.key }, () => scene.goPlay(hit.key));
 });
@@ -346,6 +360,9 @@ function apply(snap) {
   scene.world = snap.world;
   scene.theme = p.decor.theme;
   scene.decor = p.decor.placed;
+  scene.decorSlots = p.decor.slots;
+  scene.house = p.house;
+  scene.houseCost = cfg.house.cost;
   scene.visitor = p.visitor;
   scene.visitorEmoji = p.visitor ? cfg.visitors[p.visitor.kind]?.emoji : null;
   scene.visitorLabel = p.visitor ? cfg.visitors[p.visitor.kind]?.label.toLowerCase() : null;
@@ -364,6 +381,7 @@ function apply(snap) {
   if (p.form === 'radiant') bits.push('Bersinar 🌟');
   if (p.trait) bits.push(`${cfg.traits[p.trait].label} ${cfg.traits[p.trait].emoji}`);
   if (p.generation > 1) bits.push(`Gen ${p.generation}`);
+  if (p.house.inside) bits.push('🏠 di rumah');
   $('#petSub').textContent = p.stage === 'egg' ? `Telur ${SPECIES[p.species]} · segera menetas…` : `${bits.join(' · ')} · ${fmtAge(p.ageMinutes)}`;
 
   const lvl = p.level;
@@ -406,7 +424,7 @@ function apply(snap) {
 
   const cdSig = (key, step = 5000) => Math.ceil(Math.max(0, (p.cooldowns[key] || 0) - serverNow()) / step);
   renderIf('quests', [p.daily, p.weekly, snap.streak, snap.world?.event, Object.keys(p.achievements), cfg.quests], renderQuests);
-  renderIf('shop', [shopTab, p.coins, p.level, p.inventory, p.equipped, p.decor], renderShop);
+  renderIf('shop', [shopTab, p.coins, p.level, p.inventory, p.equipped, p.decor, p.house, p.stage], renderShop);
   renderIf('train', [p.skills, p.trait, p.prefs, p.highscores, p.stats.energy > 20, ...Object.keys(cfg.skills).map((k) => cdSig(`train:${k}`)), p.sleeping, p.stage], renderTrain);
   renderIf('collection', [p.album, p.albumClaimed, p.family, p.stage, p.generation, p.stage === 'elder' ? 0 : Math.floor(p.ageMinutes / 60)], renderCollection);
   renderIf('about', [p.totals, Math.floor(p.ageMinutes / 5), p.trait, p.generation, p.careSamples > 0 ? Math.round(p.careSum / p.careSamples) : 100], renderAbout);
@@ -422,7 +440,10 @@ function renderWorld() {
   if (w) {
     const def = cfg.weathers[w.weather];
     chip.firstChild.textContent = `${def.emoji} `;
-    $('b', chip).textContent = def.label;
+    const wet = w.weather === 'hujan' || w.weather === 'badai';
+    const exposed = wet && !S.pet.house.inside && S.pet.stage !== 'egg';
+    $('b', chip).textContent = exposed ? `${def.label} — kehujanan!` : wet && S.pet.house.inside ? `${def.label} — berteduh 🏠` : def.label;
+    chip.classList.toggle('danger', exposed);
   }
   const ec = $('#eventChip');
   ec.hidden = !w?.event;
@@ -434,6 +455,32 @@ function renderWorld() {
 }
 $('#eventChip').addEventListener('click', () => { showTab('quests'); $('#eventCard').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
+// Toko & rumah di adegan
+function openShop(tab) {
+  showTab('shop');
+  shopTab = tab;
+  rendered.delete('shop');
+  renderShop();
+  $('#tab-shop').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function tapHouse() {
+  const h = S.pet.house;
+  if (!h.owned) { toast(`Rumah dijual 🪙 ${S.config.house.cost}. Beli di Toko → Rumah.`); return openShop('house'); }
+  act({ type: 'home' }, () => sfx.click());
+}
+
+// Sapaan saat waktu taman berganti (pagi → siang → sore → malam)
+const BANDS = [[5, 11, 'pagi', ['Selamat pagi! Semangat hari ini!', 'Pagi~ udaranya segar banget!']], [11, 15, 'siang', ['Wah, sudah siang. Matahari terik ya!', 'Siang-siang enaknya main di taman!']], [15, 18.5, 'sore', ['Sore yang cantik… langitnya jingga!', 'Sudah sore, sebentar lagi gelap.']], [18.5, 29, 'malam', ['Malam sudah tiba, bintangnya bagus ya.', 'Selamat malam… aku mulai ngantuk.']]];
+let lastBand = null;
+function bandOf(h) { const x = h < 5 ? h + 24 : h; return BANDS.find(([a, b]) => x >= a && x < b); }
+setInterval(() => {
+  if (!S?.pet || document.hidden) return;
+  const b = bandOf(gameHour());
+  if (!b) return;
+  if (lastBand && lastBand !== b[2] && !S.pet.sleeping && S.pet.stage !== 'egg' && !S.pet.house.inside && !(scene.bubble && scene.t < scene.bubble.until)) scene.say(pick(b[3]), 4);
+  lastBand = b[2];
+}, 4000);
+
 // Peliharaan bicara sendiri saat lapar, haus, atau ngantuk (diulang tiap ±45 detik selama masih butuh).
 const NEEDS = [
   { key: 'hunger', at: 30, msgs: ['Aku lapar…', 'Perutku keroncongan, kasih makan dong!', 'Lapar nih, ada makanan nggak?'] },
@@ -443,7 +490,15 @@ const NEEDS = [
 const needLast = {};
 function watchNeeds() {
   const p = S.pet;
-  if (p.sleeping || p.stage === 'egg' || document.hidden) return;
+  if (document.hidden || p.stage === 'egg') return;
+  const wx = S.world?.weather;
+  if ((wx === 'hujan' || wx === 'badai') && !p.house.inside && Date.now() - (needLast.rain || 0) > 40000 && !(scene.bubble && scene.t < scene.bubble.until)) {
+    needLast.rain = Date.now();
+    scene.say(p.house.owned ? 'Brrr, aku kehujanan! Ketuk rumah supaya aku masuk…' : pick(['Brrr, dingin! Aku kehujanan… beli rumah di Toko dong!', 'Aku basah kuyup! Kesehatanku turun… butuh rumah!']), 5);
+    sfx.pop();
+    return;
+  }
+  if (p.sleeping) return;
   const worst = NEEDS.filter((n) => p.stats[n.key] < n.at).sort((a, b) => p.stats[a.key] / a.at - p.stats[b.key] / b.at)[0];
   if (!worst) return;
   const now = Date.now();
@@ -566,7 +621,8 @@ function renderShop() {
   const p = S.pet, cfg = S.config, shop = $('#shop');
   shop.replaceChildren();
   $$('#shopSeg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.shop === shopTab)));
-  const celebrate = () => scene.confetti(scene.x, scene.y - 80, 18);
+  // setiap pembelian: peliharaan berjalan ke toko, masuk, lalu keluar membawa tas (bila sedang di luar)
+  const celebrate = (emoji) => () => { if (!scene.shopVisit(emoji)) scene.confetti(scene.x, scene.y - 80, 18); };
   if (shopTab === 'acc') {
     for (const slot of ['head', 'face', 'neck']) {
       shop.append(el('h4', { text: SLOT_LABEL[slot] }));
@@ -574,7 +630,7 @@ function renderShop() {
         const owned = p.inventory.includes(id), on = p.equipped[slot] === id;
         const button = owned
           ? el('button', { type: 'button', text: on ? 'Lepas' : 'Pakai', onclick: () => act({ type: 'equip', item: id }, () => sfx.click()) })
-          : buyBtn(it, () => act({ type: 'buy', item: id }, celebrate), 'Beli');
+          : buyBtn(it, () => act({ type: 'buy', item: id }, celebrate(it.emoji)), 'Beli');
         shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Dipakai' : 'Dimiliki') : SLOT_LABEL[slot], button }));
       }
     }
@@ -584,16 +640,40 @@ function renderShop() {
       const owned = p.decor.owned.includes(id), on = p.decor.placed.includes(id);
       const button = owned
         ? el('button', { type: 'button', text: on ? 'Simpan' : 'Pasang', onclick: () => act({ type: 'decorPlace', item: id }, () => sfx.click()) })
-        : buyBtn(it, () => act({ type: 'decorBuy', item: id }, celebrate), 'Beli');
+        : buyBtn(it, () => act({ type: 'decorBuy', item: id }, celebrate(it.emoji)), 'Beli');
       shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Terpasang' : 'Disimpan') : 'Dekorasi', button }));
     }
+  } else if (shopTab === 'house') {
+    const hc = cfg.house, h = p.house;
+    const locked = p.level < hc.unlock, poor = p.coins < hc.cost;
+    const rain = cfg.rainDamage;
+    const buy = el('button', {
+      type: 'button', class: 'buy', disabled: locked || poor, text: locked ? `🔒 Level ${hc.unlock}` : `Beli 🪙 ${hc.cost}`,
+      title: locked ? `Terbuka di level ${hc.unlock}` : poor ? 'Koin belum cukup' : 'Beli rumah',
+      onclick: () => act({ type: 'houseBuy' }, () => { if (!scene.shopVisit(hc.emoji)) scene.confetti(scene.x, scene.y - 80, 24); }),
+    });
+    const toggle = el('button', {
+      type: 'button', class: 'buy', text: h.inside ? '🚪 Keluarkan dari rumah' : '🏠 Masukkan ke rumah',
+      disabled: p.stage === 'egg' || (h.inside && h.reason !== 'manual'),
+      title: h.inside && h.reason === 'rain' ? 'Masih hujan — tetap di dalam' : h.inside && h.reason === 'sleep' ? 'Sedang tidur' : '',
+      onclick: () => act({ type: 'home' }, () => sfx.click()),
+    });
+    const status = h.owned
+      ? (h.inside ? `${p.name} sedang di dalam rumah${h.reason === 'rain' ? ' (berteduh dari hujan)' : h.reason === 'sleep' ? ' (tidur)' : ''}.` : `${p.name} sedang di luar. Ia berteduh otomatis saat hujan.`)
+      : `Tanpa rumah, hujan menurunkan kesehatan ${p.name} sekitar ${rain.hujan}/jam-game (badai ${rain.badai}/jam).`;
+    shop.append(el('div', { class: 'housecard' },
+      el('div', { class: 'big', text: hc.emoji }),
+      el('div', { class: 't', text: h.owned ? 'Rumah milikmu' : hc.label }),
+      el('ul', {}, ...hc.perks.map((x) => el('li', { text: x }))),
+      el('div', { class: `s${!h.owned ? ' warn' : ''}`, text: status }),
+      h.owned ? toggle : buy));
   } else {
     shop.append(el('h4', { text: 'Tema taman' }));
     for (const [id, it] of Object.entries(cfg.themes)) {
       const owned = p.decor.themes.includes(id), on = p.decor.theme === id;
       const button = owned
         ? el('button', { type: 'button', disabled: on, text: on ? 'Dipakai' : 'Pakai', onclick: () => act({ type: 'themeSet', theme: id }, () => sfx.click()) })
-        : buyBtn(it, () => act({ type: 'themeBuy', theme: id }, () => scene.confetti(scene.x, scene.y - 80, 24)), 'Beli');
+        : buyBtn(it, () => act({ type: 'themeBuy', theme: id }, celebrate(it.emoji)), 'Beli');
       shop.append(shopCard({ on, emoji: it.emoji, label: it.label, meta: owned ? (on ? 'Aktif' : 'Dimiliki') : 'Tema', button }));
     }
   }

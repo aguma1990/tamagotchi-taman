@@ -4,18 +4,30 @@
 const MIN = 60 * 1000;
 
 // ---------- Dekorasi taman & tema ----------
+const TALL = ['T1', 'T2', 'T3']; // 3 tempat tinggi di barisan belakang
 const DECOR = Object.freeze({
-  kotakpos: { label: 'Kotak Pos', emoji: '📮', cost: 35, unlock: 1 },
-  bunga: { label: 'Bunga Matahari', emoji: '🌻', cost: 20, unlock: 1 },
-  semak: { label: 'Semak Bunga', emoji: '🌸', cost: 30, unlock: 1 },
-  pohon: { label: 'Pohon Rindang', emoji: '🌳', cost: 60, unlock: 2 },
-  bangku: { label: 'Bangku Taman', emoji: '🪑', cost: 45, unlock: 2 },
-  lampu: { label: 'Lampu Taman', emoji: '🏮', cost: 50, unlock: 2 },
-  balon: { label: 'Balon Udara', emoji: '🎈', cost: 40, unlock: 3 },
-  payung: { label: 'Payung Pantai', emoji: '⛱️', cost: 55, unlock: 3 },
-  tenda: { label: 'Tenda Piknik', emoji: '⛺', cost: 90, unlock: 4 },
-  kincir: { label: 'Kincir Angin', emoji: '🌀', cost: 110, unlock: 5 },
+  kotakpos: { label: 'Kotak Pos', emoji: '📮', cost: 35, unlock: 1, slots: ['F1', 'F2', 'F4', 'F5'] },
+  bunga: { label: 'Bunga Matahari', emoji: '🌻', cost: 20, unlock: 1, slots: ['F1', 'F2', 'F4', 'F5'] },
+  semak: { label: 'Semak Bunga', emoji: '🌸', cost: 30, unlock: 1, slots: ['F1', 'F2', 'F3', 'F4'] },
+  pohon: { label: 'Pohon Rindang', emoji: '🌳', cost: 60, unlock: 2, slots: TALL },
+  bangku: { label: 'Bangku Taman', emoji: '🪑', cost: 45, unlock: 2, slots: ['F1', 'F2', 'F3', 'F4'] },
+  lampu: { label: 'Lampu Taman', emoji: '🏮', cost: 50, unlock: 2, slots: ['P1'] },
+  balon: { label: 'Balon Udara', emoji: '🎈', cost: 40, unlock: 3, slots: ['S1'] },
+  payung: { label: 'Payung Pantai', emoji: '⛱️', cost: 55, unlock: 3, slots: TALL },
+  tenda: { label: 'Tenda Piknik', emoji: '⛺', cost: 90, unlock: 4, slots: TALL },
+  kincir: { label: 'Kincir Angin', emoji: '🌀', cost: 110, unlock: 5, slots: TALL },
 });
+const DECOR_SLOTS = Object.freeze(['T1', 'T2', 'T3', 'P1', 'F1', 'F2', 'F3', 'F4', 'F5', 'S1']);
+/** Posisi aman tempat harta karun muncul (tidak menimpa kolam, kotak pasir, dll). */
+const TREASURE_SPOTS = Object.freeze([200, 560, 610, 660, 700]);
+
+// Rumah peliharaan: harus dibeli. Melindungi dari hujan, dan otomatis dipakai tidur.
+const HOUSE = Object.freeze({
+  label: 'Rumah Peliharaan', emoji: '🏠', cost: 80, unlock: 2,
+  perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak (+30% pulih energi)', 'Bisa masuk/keluar sendiri kapan saja'],
+});
+// Tanpa rumah, hujan/badai langsung menurunkan kesehatan (poin per jam-game).
+const RAIN = Object.freeze({ hujan: 45, badai: 90 });
 
 const THEMES = Object.freeze({
   default: { label: 'Hijau Asri', emoji: '🌿', cost: 0, unlock: 1 },
@@ -161,7 +173,7 @@ function hash01(str) {
 }
 
 module.exports = {
-  DECOR, THEMES, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
+  DECOR, DECOR_SLOTS, TREASURE_SPOTS, THEMES, HOUSE, RAIN, STICKERS, STICKER_DROPS, ALBUM_REWARDS, VISITORS, MINIGAMES, MINIGAME_MAX, RECORD_BONUS, PLAY_COOLDOWN, MORPH_COST,
   SKILLS, SKILL_MAX, TRAIN, skillNeed, TRAITS, PREF_FOODS, WEATHERS, WEATHER_SLOT_MS, HOLIDAYS,
   hijri, holidayOn, weekKey, hash01,
 };

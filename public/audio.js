@@ -105,11 +105,33 @@ function musicTick() {
   timer = setTimeout(musicTick, 2400 + Math.random() * 1400);
 }
 
+// suasana: kicau burung (siang), jangkrik (malam), rintik hujan
+let ambTimer = 0;
+function ambTick() {
+  ambTimer = 0;
+  if (!want || muted) return;
+  if (mood === 'night') {
+    for (let i = 0; i < 3; i++) tone(4300, 0.025, { type: 'square', vol: 0.004, delay: i * 0.07 });
+    ambTimer = setTimeout(ambTick, 1100 + Math.random() * 900);
+  } else if (mood === 'rain') {
+    noise(0.6, 0.018, 2600);
+    ambTimer = setTimeout(ambTick, 450 + Math.random() * 300);
+  } else {
+    if (Math.random() < 0.7) {
+      const f = 2200 + Math.random() * 900;
+      tone(f, 0.07, { vol: 0.012, to: f * 1.4 });
+      tone(f * 1.15, 0.09, { vol: 0.012, delay: 0.1, to: f * 0.9 });
+      if (Math.random() < 0.5) tone(f * 1.3, 0.06, { vol: 0.01, delay: 0.22 });
+    }
+    ambTimer = setTimeout(ambTick, 3500 + Math.random() * 6000);
+  }
+}
+
 export const music = {
-  start() { want = true; if (!timer && !muted) musicTick(); },
-  stop() { want = false; clearTimeout(timer); timer = 0; },
-  pause() { clearTimeout(timer); timer = 0; },
-  resume() { if (want && !timer) musicTick(); },
+  start() { want = true; if (!timer && !muted) musicTick(); if (!ambTimer && !muted) ambTick(); },
+  stop() { want = false; clearTimeout(timer); timer = 0; clearTimeout(ambTimer); ambTimer = 0; },
+  pause() { clearTimeout(timer); timer = 0; clearTimeout(ambTimer); ambTimer = 0; },
+  resume() { if (want && !timer) musicTick(); if (want && !ambTimer) ambTick(); },
   setMood(m) { mood = SCALES[m] ? m : 'day'; },
   isOn: () => want,
 };

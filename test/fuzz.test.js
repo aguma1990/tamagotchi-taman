@@ -20,7 +20,7 @@ function randomAction(r, s) {
   const pick = (a) => a[Math.floor(r() * a.length)];
   const junk = () => pick(GARBAGE);
   const mixed = (valid) => (r() < 0.25 ? junk() : pick(valid));
-  switch (Math.floor(r() * 23)) {
+  switch (Math.floor(r() * 25)) {
     case 0: return { type: 'feed', food: mixed(FOOD) };
     case 1: return { type: 'clean' };
     case 2: return { type: 'medicine' };
@@ -43,6 +43,8 @@ function randomAction(r, s) {
     case 19: return { type: 'equip', item: mixed(COSM) };
     case 20: return { type: 'retire', name: r() < 0.3 ? junk() : 'Anak', species: mixed(SPECIES) };
     case 21: return { type: 'morph', species: mixed(SPECIES), name: r() < 0.5 ? undefined : (r() < 0.3 ? junk() : pick(['Baru', 'Momo', '  ', 'X'.repeat(40)])) };
+    case 22: return { type: 'houseBuy' };
+    case 23: return { type: 'home' };
     default: return r() < 0.5 ? { type: junk() } : junk();
   }
 }
@@ -63,6 +65,8 @@ function checkInvariants(s, ctx) {
   assert.ok(['egg', 'baby', 'child', 'teen', 'adult', 'elder'].includes(s.stage));
   assert.ok(s.daily.quests.length === 3 && s.weekly.quests >= 0);
   assert.ok(!s.sleeping || s.stage !== 'egg', `${ctx}: telur tidur`);
+  assert.ok(!s.house.inside || s.house.owned, `${ctx}: di dalam rumah tanpa punya rumah`);
+  assert.ok(!s.house.inside || ['manual', 'rain', 'sleep'].includes(s.house.reason), `${ctx}: alasan rumah`);
   assert.doesNotThrow(() => JSON.parse(JSON.stringify(s)), `${ctx}: serialisasi`);
 }
 
@@ -90,7 +94,7 @@ test('fuzz: 120 peliharaan × 250 langkah acak tidak melanggar invarian atau mel
   }
   assert.ok(okCount > actions * 0.15, `terlalu sedikit aksi sukses: ${okCount}/${actions}`);
   // setiap jenis aksi penting harus benar-benar pernah berhasil (uji ini tidak boleh lolos karena semuanya ditolak)
-  for (const type of ['feed', 'clean', 'sleep', 'cuddle', 'play', 'minigame', 'chat', 'daily', 'lucky', 'quest', 'collect', 'greet', 'train', 'buy', 'decorBuy', 'themeBuy', 'equip', 'retire', 'medicine', 'morph']) {
+  for (const type of ['feed', 'clean', 'sleep', 'cuddle', 'play', 'minigame', 'chat', 'daily', 'lucky', 'quest', 'collect', 'greet', 'train', 'buy', 'decorBuy', 'themeBuy', 'equip', 'retire', 'medicine', 'morph', 'houseBuy', 'home']) {
     assert.ok(okByType[type] > 0, `aksi "${type}" tidak pernah berhasil di uji acak (${JSON.stringify(okByType)})`);
   }
   process.stdout.write(`# fuzz: ${actions} aksi, ${okCount} sukses\n`);
