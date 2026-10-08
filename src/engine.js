@@ -95,7 +95,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'fashion', icon: '🎩', label: 'Fashionista', desc: 'Miliki 3 aksesori', reward: 20, test: (s) => s.inventory.length >= 3 },
   { id: 'decor5', icon: '🌷', label: 'Tukang Taman', desc: 'Miliki 5 dekorasi taman', reward: 25, test: (s) => s.decor.owned.length >= 5 },
   { id: 'skill5', icon: '🏃', label: 'Atlet', desc: 'Capai level 5 di salah satu keterampilan', reward: 25, test: (s) => Object.values(s.skills).some((k) => k.lv >= 5) },
-  { id: 'house', icon: '🏠', label: 'Punya Rumah', desc: 'Membeli rumah untuk peliharaan', reward: 20, test: (s) => s.house.owned },
+  { id: 'house', icon: '🐾', label: 'Punya Rumah Hewan', desc: 'Membeli rumah hewan untuk peliharaan', reward: 20, test: (s) => s.house.owned },
   { id: 'morph3', icon: '🎭', label: 'Si Bunglon', desc: 'Ganti karakter 3 kali', reward: 15, test: (s) => s.totals.morphs >= 3 },
   { id: 'album8', icon: '📖', label: 'Kolektor', desc: 'Kumpulkan 8 stiker berbeda', reward: 30, test: (s) => Object.keys(s.album).length >= 8 },
   { id: 'shiny', icon: '✨', label: 'Langka!', desc: 'Menetaskan peliharaan warna langka', reward: 60, test: (s) => s.shiny && s.stage !== 'egg' },
@@ -465,7 +465,7 @@ function syncHouse(s, wet, events, t) {
   if (!h.owned) return;
   if (wet && !h.inside) {
     h.inside = true; h.reason = 'rain';
-    events.push(ev(t, 'house', `🏠 ${s.name} berteduh di rumah karena hujan.`));
+    events.push(ev(t, 'house', `🐾 ${s.name} berteduh di rumah hewannya karena hujan.`));
   } else if (s.sleeping && !h.inside) {
     h.inside = true; h.reason = 'sleep';
   } else if (h.inside) {
@@ -1030,7 +1030,7 @@ function doAction(s, now, a, events, out = {}) {
       if (s.coins < C.HOUSE.cost) return 'Koin tidak cukup.';
       s.coins -= C.HOUSE.cost;
       s.house.owned = true;
-      events.push(ev(now, 'buy', `🏠 Rumah baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
+      events.push(ev(now, 'buy', `🐾 Rumah hewan baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
       return null;
     }
     case 'home': {

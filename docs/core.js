@@ -28,10 +28,10 @@ const DECOR_SLOTS = Object.freeze(['T1', 'T2', 'T3', 'P1', 'F1', 'F2', 'F3', 'F4
 /** Posisi aman tempat harta karun muncul (tidak menimpa kolam, kotak pasir, dll). */
 const TREASURE_SPOTS = Object.freeze([200, 560, 610, 660, 700]);
 
-// Rumah peliharaan: harus dibeli. Melindungi dari hujan, dan otomatis dipakai tidur.
+// Rumah hewan (kandang yang imut): harus dibeli. Melindungi dari hujan, dan otomatis dipakai tidur.
 const HOUSE = Object.freeze({
-  label: 'Rumah Peliharaan', emoji: '🏠', cost: 80, unlock: 2,
-  perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak (+30% pulih energi)', 'Bisa masuk/keluar sendiri kapan saja'],
+  label: 'Rumah Hewan', emoji: '🐾', cost: 80, unlock: 2,
+  perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak di dalam (+30% pulih energi)', 'Bisa masuk/keluar kapan saja dengan mengetuknya'],
 });
 // Tanpa rumah, hujan/badai langsung menurunkan kesehatan (poin per jam-game).
 const RAIN = Object.freeze({ hujan: 45, badai: 90 });
@@ -308,13 +308,13 @@ function reply(s, rawText, W) {
       pelangi: 'Lihat pelangi itu! Katanya ada harta di ujungnya. 🌈',
     };
     const wet = W.weather === 'hujan' || W.weather === 'badai';
-    if (wet && s.house?.owned) return out(s.house.inside ? 'Di luar hujan, tapi aku aman dan hangat di rumah. 🏠' : 'Hujan! Aku mau masuk rumah dulu ya. 🏠');
+    if (wet && s.house?.owned) return out(s.house.inside ? 'Di luar hujan, tapi aku aman dan hangat di rumah hewanku. 🐾' : 'Hujan! Aku mau masuk rumah hewanku dulu ya. 🐾');
     if (wet) return out('Aku kehujanan! Badanku mulai lemas… tolong belikan rumah di Toko supaya aku bisa berteduh. 🥶');
     return out(wx[W.weather] || wx.cerah);
   }
   if (has(t, 'rumah', 'berteduh', 'rumahku')) {
-    if (!s.house?.owned) return out('Aku belum punya rumah. Kalau hujan aku kehujanan lho… ada di Toko → Rumah. 🥺');
-    return out(s.house.inside ? 'Aku lagi di dalam rumah, nyaman banget! Ketuk rumahnya kalau mau mengajakku keluar.' : 'Rumahku bagus! Kalau hujan aku langsung berteduh ke sana. 🏠');
+    if (!s.house?.owned) return out('Aku belum punya rumah hewan. Kalau hujan aku kehujanan lho… belikan di Toko → Rumah ya. 🥺');
+    return out(s.house.inside ? 'Aku lagi meringkuk di rumah hewanku, nyaman banget! Ketuk rumahnya kalau mau mengajakku keluar.' : 'Rumah hewanku imut! Kalau hujan aku langsung berteduh ke sana. 🐾');
   }
   if (has(t, 'toko', 'belanja', 'beli')) {
     return out(`Toko di ujung taman buka terus! Kamu punya ${s.coins} koin. Aku suka lihat kamu belanja. 🛍️`);
@@ -535,7 +535,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'fashion', icon: '🎩', label: 'Fashionista', desc: 'Miliki 3 aksesori', reward: 20, test: (s) => s.inventory.length >= 3 },
   { id: 'decor5', icon: '🌷', label: 'Tukang Taman', desc: 'Miliki 5 dekorasi taman', reward: 25, test: (s) => s.decor.owned.length >= 5 },
   { id: 'skill5', icon: '🏃', label: 'Atlet', desc: 'Capai level 5 di salah satu keterampilan', reward: 25, test: (s) => Object.values(s.skills).some((k) => k.lv >= 5) },
-  { id: 'house', icon: '🏠', label: 'Punya Rumah', desc: 'Membeli rumah untuk peliharaan', reward: 20, test: (s) => s.house.owned },
+  { id: 'house', icon: '🐾', label: 'Punya Rumah Hewan', desc: 'Membeli rumah hewan untuk peliharaan', reward: 20, test: (s) => s.house.owned },
   { id: 'morph3', icon: '🎭', label: 'Si Bunglon', desc: 'Ganti karakter 3 kali', reward: 15, test: (s) => s.totals.morphs >= 3 },
   { id: 'album8', icon: '📖', label: 'Kolektor', desc: 'Kumpulkan 8 stiker berbeda', reward: 30, test: (s) => Object.keys(s.album).length >= 8 },
   { id: 'shiny', icon: '✨', label: 'Langka!', desc: 'Menetaskan peliharaan warna langka', reward: 60, test: (s) => s.shiny && s.stage !== 'egg' },
@@ -905,7 +905,7 @@ function syncHouse(s, wet, events, t) {
   if (!h.owned) return;
   if (wet && !h.inside) {
     h.inside = true; h.reason = 'rain';
-    events.push(ev(t, 'house', `🏠 ${s.name} berteduh di rumah karena hujan.`));
+    events.push(ev(t, 'house', `🐾 ${s.name} berteduh di rumah hewannya karena hujan.`));
   } else if (s.sleeping && !h.inside) {
     h.inside = true; h.reason = 'sleep';
   } else if (h.inside) {
@@ -1470,7 +1470,7 @@ function doAction(s, now, a, events, out = {}) {
       if (s.coins < C.HOUSE.cost) return 'Koin tidak cukup.';
       s.coins -= C.HOUSE.cost;
       s.house.owned = true;
-      events.push(ev(now, 'buy', `🏠 Rumah baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
+      events.push(ev(now, 'buy', `🐾 Rumah hewan baru untuk ${s.name}! Ia kini bisa berteduh saat hujan.`));
       return null;
     }
     case 'home': {

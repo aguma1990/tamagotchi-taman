@@ -381,7 +381,7 @@ function apply(snap) {
   if (p.form === 'radiant') bits.push('Bersinar 🌟');
   if (p.trait) bits.push(`${cfg.traits[p.trait].label} ${cfg.traits[p.trait].emoji}`);
   if (p.generation > 1) bits.push(`Gen ${p.generation}`);
-  if (p.house.inside) bits.push('🏠 di rumah');
+  if (p.house.inside) bits.push('🐾 di rumah');
   $('#petSub').textContent = p.stage === 'egg' ? `Telur ${SPECIES[p.species]} · segera menetas…` : `${bits.join(' · ')} · ${fmtAge(p.ageMinutes)}`;
 
   const lvl = p.level;
@@ -442,7 +442,7 @@ function renderWorld() {
     chip.firstChild.textContent = `${def.emoji} `;
     const wet = w.weather === 'hujan' || w.weather === 'badai';
     const exposed = wet && !S.pet.house.inside && S.pet.stage !== 'egg';
-    $('b', chip).textContent = exposed ? `${def.label} — kehujanan!` : wet && S.pet.house.inside ? `${def.label} — berteduh 🏠` : def.label;
+    $('b', chip).textContent = exposed ? `${def.label} — kehujanan!` : wet && S.pet.house.inside ? `${def.label} — berteduh 🐾` : def.label;
     chip.classList.toggle('danger', exposed);
   }
   const ec = $('#eventChip');
@@ -465,7 +465,7 @@ function openShop(tab) {
 }
 function tapHouse() {
   const h = S.pet.house;
-  if (!h.owned) { toast(`Rumah dijual 🪙 ${S.config.house.cost}. Beli di Toko → Rumah.`); return openShop('house'); }
+  if (!h.owned) { toast(`Rumah hewan dijual 🪙 ${S.config.house.cost}. Beli di Toko → Rumah.`); return openShop('house'); }
   act({ type: 'home' }, () => sfx.click());
 }
 
@@ -653,7 +653,7 @@ function renderShop() {
       onclick: () => act({ type: 'houseBuy' }, () => { if (!scene.shopVisit(hc.emoji)) scene.confetti(scene.x, scene.y - 80, 24); }),
     });
     const toggle = el('button', {
-      type: 'button', class: 'buy', text: h.inside ? '🚪 Keluarkan dari rumah' : '🏠 Masukkan ke rumah',
+      type: 'button', class: 'buy', text: h.inside ? '🚪 Keluarkan dari rumah' : '🐾 Masukkan ke rumah hewan',
       disabled: p.stage === 'egg' || (h.inside && h.reason !== 'manual'),
       title: h.inside && h.reason === 'rain' ? 'Masih hujan — tetap di dalam' : h.inside && h.reason === 'sleep' ? 'Sedang tidur' : '',
       onclick: () => act({ type: 'home' }, () => sfx.click()),
@@ -663,7 +663,7 @@ function renderShop() {
       : `Tanpa rumah, hujan menurunkan kesehatan ${p.name} sekitar ${rain.hujan}/jam-game (badai ${rain.badai}/jam).`;
     shop.append(el('div', { class: 'housecard' },
       el('div', { class: 'big', text: hc.emoji }),
-      el('div', { class: 't', text: h.owned ? 'Rumah milikmu' : hc.label }),
+      el('div', { class: 't', text: h.owned ? 'Rumah hewan milikmu' : hc.label }),
       el('ul', {}, ...hc.perks.map((x) => el('li', { text: x }))),
       el('div', { class: `s${!h.owned ? ' warn' : ''}`, text: status }),
       h.owned ? toggle : buy));

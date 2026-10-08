@@ -19,7 +19,7 @@ export const RIDES = {
 };
 
 export const BUILDINGS = {
-  house: { x: 270, y: 372, box: [-88, -150, 88, 0], door: { x: 270, y: 372, w: 36 }, label: 'Rumah' },
+  house: { x: 270, y: 372, box: [-70, -108, 70, 0], door: { x: 270, y: 372, w: 44 }, label: 'Rumah hewan' },
   shop: { x: 655, y: 372, box: [-75, -122, 75, 0], door: { x: 655, y: 372, w: 36 }, label: 'Toko' },
 };
 

@@ -917,74 +917,67 @@ export class Scene {
     if (ev) this._buildingOrnaments(c, ev, dark);
     for (const [key, b] of Object.entries(BUILDINGS)) {
       if (this.hover !== key) continue;
-      const label = key === 'shop' ? 'Toko — ketuk untuk belanja' : this.house.owned ? (this.house.inside ? 'Rumah — ketuk untuk keluar' : 'Rumah — ketuk untuk masuk') : `Rumah dijual 🪙${this.houseCost ?? 80} — ketuk`;
+      const label = key === 'shop' ? 'Toko — ketuk untuk belanja' : this.house.owned ? (this.house.inside ? 'Rumah hewan — ketuk untuk keluar' : 'Rumah hewan — ketuk untuk masuk') : `Rumah hewan dijual 🪙${this.houseCost ?? 80} — ketuk`;
       this._tag(c, b.x, b.y + b.box[1] - 14, label);
     }
   }
 
-  _house(c, dark) {
+  _house(c, dark) { // rumah hewan: kandang kayu beratap pelana, pintu melengkung, mangkuk & bantal
     const { x, y } = BUILDINGS.house, owned = this.house.owned;
-    const lit = dark > 0.35 || this.inHouse;
+    const d6 = dark * 0.6;
     c.save(); c.translate(x, y);
-    this._shadow(c, 0, 5, 104);
-    c.globalAlpha = owned ? 1 : 0.28;
-    const wall = mix('#fdebd0', '#3a3a58', dark * 0.6), roof = mix('#c8553d', '#4a2a3a', dark * 0.6);
-    c.fillStyle = wall; c.beginPath(); c.roundRect(-70, -90, 140, 90, 3); c.fill();
-    c.strokeStyle = 'rgba(120,90,60,.12)'; c.lineWidth = 1;
-    for (let i = 0; i < 6; i++) { c.beginPath(); c.moveTo(-70, -80 + i * 14); c.lineTo(70, -80 + i * 14); c.stroke(); }
-    // cerobong
-    c.fillStyle = mix('#a8573f', '#3a2030', dark * 0.6); c.fillRect(38, -146, 20, 52);
-    c.fillStyle = mix('#8a4630', '#2e1a28', dark * 0.6); c.fillRect(35, -150, 26, 7);
-    // atap
-    c.fillStyle = roof; c.beginPath(); c.moveTo(-92, -86); c.lineTo(0, -152); c.lineTo(92, -86); c.closePath(); c.fill();
-    c.strokeStyle = mix('#a8412c', '#32202c', dark * 0.6); c.lineWidth = 1.5;
-    for (let r = 0; r < 4; r++) { const yy = -96 - r * 14; const half = 78 - r * 17; c.beginPath(); c.moveTo(-half, yy); c.lineTo(half, yy); c.stroke(); }
-    c.fillStyle = mix('#8a3a28', '#2a1a24', dark * 0.6); c.fillRect(-94, -88, 188, 5);
-    // pintu
-    c.fillStyle = mix('#8a5a34', '#3a2a22', dark * 0.6); c.beginPath(); c.roundRect(-18, -58, 36, 58, [18, 18, 0, 0]); c.fill();
-    c.strokeStyle = 'rgba(0,0,0,.18)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -58); c.lineTo(0, 0); c.stroke();
-    c.fillStyle = '#ffd166'; c.beginPath(); c.arc(9, -26, 2.6, 0, 7); c.fill();
-    c.fillStyle = mix('#c9b283', '#4c4535', dark * 0.6); c.fillRect(-24, -2, 48, 5);
-    // jendela
-    for (const wx of [-56, 28]) {
-      c.fillStyle = mix('#8a6a4a', '#2e2230', dark * 0.5); c.fillRect(wx - 3, -75, 34, 36);
-      c.fillStyle = lit ? '#ffe08a' : mix('#a8dcff', '#25305a', dark);
-      c.fillRect(wx, -72, 28, 30);
-      if (lit) { const g = c.createRadialGradient(wx + 14, -57, 2, wx + 14, -57, 46); g.addColorStop(0, 'rgba(255,224,138,.35)'); g.addColorStop(1, 'rgba(255,224,138,0)'); c.fillStyle = g; c.fillRect(wx - 34, -100, 96, 90); }
-      c.strokeStyle = mix('#8a6a4a', '#2e2230', dark * 0.5); c.lineWidth = 2;
-      c.beginPath(); c.moveTo(wx + 14, -72); c.lineTo(wx + 14, -42); c.moveTo(wx, -57); c.lineTo(wx + 28, -57); c.stroke();
-      c.fillStyle = mix('#5aa860', '#1c4a3f', dark); c.fillRect(wx - 2, -37, 32, 7);
-      for (let i = 0; i < 4; i++) { c.fillStyle = ['#ff7aa8', '#ffd166', '#fff'][i % 3]; c.beginPath(); c.arc(wx + 3 + i * 8, -39, 3, 0, 7); c.fill(); }
-    }
+    this._shadow(c, 0, 5, 84);
+    c.globalAlpha = owned ? 1 : 0.3;
+    // dinding papan kayu
+    c.fillStyle = mix('#e9b87a', '#4a3a48', d6); c.beginPath(); c.roundRect(-58, -62, 116, 62, 3); c.fill();
+    c.strokeStyle = mix('#b98450', '#33283a', d6); c.lineWidth = 1.4;
+    for (let i = -3; i <= 3; i++) { c.beginPath(); c.moveTo(i * 16.5, -62); c.lineTo(i * 16.5, 0); c.stroke(); }
+    // pintu melengkung (gelap, hangat saat malam / ada penghuni)
+    const glow = owned && (this.inHouse || dark > 0.35);
+    c.fillStyle = glow ? '#5a3a1e' : mix('#3a2412', '#1a1220', dark * 0.5);
+    c.beginPath(); c.moveTo(-23, 0); c.lineTo(-23, -30); c.arc(0, -30, 23, Math.PI, 0); c.lineTo(23, 0); c.closePath(); c.fill();
+    if (glow) { const g = c.createRadialGradient(0, -24, 2, 0, -24, 30); g.addColorStop(0, 'rgba(255,214,120,.5)'); g.addColorStop(1, 'rgba(255,214,120,0)'); c.fillStyle = g; c.fillRect(-30, -56, 60, 56); }
+    c.strokeStyle = mix('#7a4a22', '#2a1c30', d6); c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-23, 0); c.lineTo(-23, -30); c.arc(0, -30, 23, Math.PI, 0); c.lineTo(23, 0); c.stroke();
+    // atap pelana
+    c.fillStyle = mix('#d0583f', '#4a2a3a', d6); c.beginPath(); c.moveTo(-70, -56); c.lineTo(0, -108); c.lineTo(70, -56); c.closePath(); c.fill();
+    c.strokeStyle = mix('#a8412c', '#32202c', d6); c.lineWidth = 1.5;
+    for (let r = 0; r < 3; r++) { const yy = -62 - r * 15; const half = 58 - r * 17; c.beginPath(); c.moveTo(-half, yy); c.lineTo(half, yy); c.stroke(); }
+    c.fillStyle = mix('#8a3a28', '#2a1a24', d6); c.fillRect(-72, -58, 144, 5);
+    // papan nama berbentuk tulang
+    c.fillStyle = mix('#fff3d6', '#6a6a86', dark * 0.5); c.beginPath(); c.roundRect(-16, -88, 32, 17, 7); c.fill();
+    c.strokeStyle = '#8a5a34'; c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = '#c0392b'; c.font = '13px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('🐾', 0, -79.5); c.textBaseline = 'alphabetic'; c.textAlign = 'start';
+    // bantal & mangkuk di depan
+    c.fillStyle = mix('#ff9ec0', '#5a3a5a', d6); c.beginPath(); c.ellipse(-44, 0, 15, 5, 0, 0, 7); c.fill();
+    c.fillStyle = mix('#e0617f', '#4a2a48', d6); c.beginPath(); c.ellipse(-44, -2, 11, 3, 0, 0, 7); c.fill();
+    c.fillStyle = mix('#5aa8e0', '#25305a', d6); c.beginPath(); c.ellipse(46, -1, 12, 5, 0, 0, Math.PI); c.fill();
+    c.fillStyle = mix('#8a5a34', '#3a2a22', d6); c.beginPath(); c.ellipse(46, -3, 12, 4, 0, 0, 7); c.fill();
     c.restore();
-    if (owned && this.inHouse && this.pet) { // siluet peliharaan di jendela kanan
+    if (owned && this.inHouse && this.pet) { // wajah peliharaan mengintip dari pintu
       const pal = (this.pet.shiny ? SHINY : PALETTES)[this.pet.species] || PALETTES.mochi;
-      const wx = x + 42, wy = y - 54;
+      const bob = this.pet.sleeping ? 0 : Math.sin(this.t * 2) * 1.2;
       c.save();
-      c.beginPath(); c.rect(x + 28, y - 72, 28, 30); c.clip();
-      c.fillStyle = pal.body; c.beginPath(); c.arc(wx, wy + 6, 11, 0, 7); c.fill();
-      c.fillStyle = '#2b2440'; c.beginPath(); c.arc(wx - 4, wy + 4, 1.6, 0, 7); c.arc(wx + 4, wy + 4, 1.6, 0, 7); c.fill();
+      c.beginPath(); c.moveTo(x - 21, y); c.lineTo(x - 21, y - 30); c.arc(x, y - 30, 21, Math.PI, 0); c.lineTo(x + 21, y); c.closePath(); c.clip();
+      c.fillStyle = pal.body; c.beginPath(); c.arc(x, y - 14 + bob, 17, 0, 7); c.fill();
+      c.fillStyle = '#2b2440';
+      if (this.pet.sleeping) { c.lineWidth = 1.8; c.strokeStyle = '#2b2440'; c.beginPath(); c.arc(x - 6, y - 17 + bob, 3, 0.1, Math.PI - 0.1); c.arc(x + 6, y - 17 + bob, 3, 0.1, Math.PI - 0.1); c.stroke(); }
+      else { c.beginPath(); c.arc(x - 6, y - 17 + bob, 2, 0, 7); c.arc(x + 6, y - 17 + bob, 2, 0, 7); c.fill(); }
       c.restore();
       if (this.pet.sleeping) {
         c.fillStyle = '#e8ecff'; c.font = '700 14px system-ui'; c.textAlign = 'center';
-        for (let i = 0; i < 3; i++) { const ph = (this.t * 0.6 + i / 3) % 1; c.globalAlpha = 1 - ph; c.fillText('z', x + 62 + ph * 18 + i * 3, y - 80 - ph * 34 - i * 8); }
+        for (let i = 0; i < 3; i++) { const ph = (this.t * 0.6 + i / 3) % 1; c.globalAlpha = 1 - ph; c.fillText('z', x + 30 + ph * 18 + i * 3, y - 62 - ph * 34 - i * 8); }
         c.globalAlpha = 1; c.textAlign = 'start';
       }
     }
-    if (owned) { // asap cerobong
-      for (let i = 0; i < 4; i++) {
-        const ph = (this.t * 0.35 + i / 4) % 1;
-        c.fillStyle = `rgba(230,230,240,${0.5 * (1 - ph)})`;
-        c.beginPath(); c.arc(x + 48 + Math.sin(ph * 6 + i) * 6 + ph * 14, y - 156 - ph * 40, 5 + ph * 8, 0, 7); c.fill();
-      }
-    } else { // papan "dijual"
-      c.fillStyle = mix('#8a5a34', '#3a2a22', dark * 0.6); c.fillRect(x - 2.5, y - 34, 5, 36);
-      c.fillStyle = mix('#fff3d6', '#6a6a86', dark * 0.5); c.beginPath(); c.roundRect(x - 36, y - 62, 72, 32, 5); c.fill();
+    if (!owned) { // papan "dijual"
+      c.fillStyle = mix('#8a5a34', '#3a2a22', dark * 0.6); c.fillRect(x - 2.5, y - 30, 5, 32);
+      c.fillStyle = mix('#fff3d6', '#6a6a86', dark * 0.5); c.beginPath(); c.roundRect(x - 36, y - 58, 72, 32, 5); c.fill();
       c.strokeStyle = '#8a5a34'; c.lineWidth = 2; c.stroke();
       c.fillStyle = '#c0392b'; c.font = '800 13px system-ui, sans-serif'; c.textAlign = 'center';
-      c.fillText('DIJUAL', x, y - 46);
+      c.fillText('DIJUAL', x, y - 42);
       c.fillStyle = '#5a3a1a'; c.font = '700 12px system-ui, sans-serif';
-      c.fillText(`🪙 ${this.houseCost ?? 80}`, x, y - 33);
+      c.fillText(`🪙 ${this.houseCost ?? 80}`, x, y - 29);
       c.textAlign = 'start';
     }
   }

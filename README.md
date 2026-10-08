@@ -87,9 +87,9 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 
 ## Rumah, toko, dan taman yang hidup
 
-- **Rumah 🏠** (🪙 80, level 2) harus dibeli. **Tanpa rumah, hujan menurunkan kesehatan dengan cepat** (hujan ~45/jam-game, badai ~90) dan
+- **Rumah hewan 🐾** (kandang kayu, 🪙 80, level 2) harus dibeli. **Tanpa rumah, hujan menurunkan kesehatan dengan cepat** (hujan ~45/jam-game, badai ~90) dan
   memperbesar risiko sakit. Dengan rumah, peliharaan **berteduh otomatis** saat hujan, **tidur di dalam** (energi pulih +30%), dan bisa
-  dimasukkan/dikeluarkan dengan mengetuk rumah. Saat ditinggal (offline) hujan tidak menurunkan kesehatan di bawah 35.
+  dimasukkan/dikeluarkan dengan mengetuk rumah hewan. Saat ditinggal (offline) hujan tidak menurunkan kesehatan di bawah 35.
 - **Toko 🛍️** selalu ada di taman. Setiap kali kamu membeli sesuatu (aksesori, dekorasi, tema, rumah) peliharaan **berjalan ke toko,
   masuk, lalu keluar membawa tas belanja**. Ketuk toko untuk membuka tab Toko.
 - **Tata letak tanpa tumpang tindih:** posisi wahana, rumah, toko, dan tempat dekorasi didefinisikan di `public/layout.mjs` dan **diuji otomatis**

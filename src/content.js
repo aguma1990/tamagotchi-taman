@@ -21,10 +21,10 @@ const DECOR_SLOTS = Object.freeze(['T1', 'T2', 'T3', 'P1', 'F1', 'F2', 'F3', 'F4
 /** Posisi aman tempat harta karun muncul (tidak menimpa kolam, kotak pasir, dll). */
 const TREASURE_SPOTS = Object.freeze([200, 560, 610, 660, 700]);
 
-// Rumah peliharaan: harus dibeli. Melindungi dari hujan, dan otomatis dipakai tidur.
+// Rumah hewan (kandang yang imut): harus dibeli. Melindungi dari hujan, dan otomatis dipakai tidur.
 const HOUSE = Object.freeze({
-  label: 'Rumah Peliharaan', emoji: '🏠', cost: 80, unlock: 2,
-  perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak (+30% pulih energi)', 'Bisa masuk/keluar sendiri kapan saja'],
+  label: 'Rumah Hewan', emoji: '🐾', cost: 80, unlock: 2,
+  perks: ['Berteduh otomatis saat hujan atau badai', 'Tidur lebih nyenyak di dalam (+30% pulih energi)', 'Bisa masuk/keluar kapan saja dengan mengetuknya'],
 });
 // Tanpa rumah, hujan/badai langsung menurunkan kesehatan (poin per jam-game).
 const RAIN = Object.freeze({ hujan: 45, badai: 90 });

@@ -116,13 +116,13 @@ function reply(s, rawText, W) {
       pelangi: 'Lihat pelangi itu! Katanya ada harta di ujungnya. 🌈',
     };
     const wet = W.weather === 'hujan' || W.weather === 'badai';
-    if (wet && s.house?.owned) return out(s.house.inside ? 'Di luar hujan, tapi aku aman dan hangat di rumah. 🏠' : 'Hujan! Aku mau masuk rumah dulu ya. 🏠');
+    if (wet && s.house?.owned) return out(s.house.inside ? 'Di luar hujan, tapi aku aman dan hangat di rumah hewanku. 🐾' : 'Hujan! Aku mau masuk rumah hewanku dulu ya. 🐾');
     if (wet) return out('Aku kehujanan! Badanku mulai lemas… tolong belikan rumah di Toko supaya aku bisa berteduh. 🥶');
     return out(wx[W.weather] || wx.cerah);
   }
   if (has(t, 'rumah', 'berteduh', 'rumahku')) {
-    if (!s.house?.owned) return out('Aku belum punya rumah. Kalau hujan aku kehujanan lho… ada di Toko → Rumah. 🥺');
-    return out(s.house.inside ? 'Aku lagi di dalam rumah, nyaman banget! Ketuk rumahnya kalau mau mengajakku keluar.' : 'Rumahku bagus! Kalau hujan aku langsung berteduh ke sana. 🏠');
+    if (!s.house?.owned) return out('Aku belum punya rumah hewan. Kalau hujan aku kehujanan lho… belikan di Toko → Rumah ya. 🥺');
+    return out(s.house.inside ? 'Aku lagi meringkuk di rumah hewanku, nyaman banget! Ketuk rumahnya kalau mau mengajakku keluar.' : 'Rumah hewanku imut! Kalau hujan aku langsung berteduh ke sana. 🐾');
   }
   if (has(t, 'toko', 'belanja', 'beli')) {
     return out(`Toko di ujung taman buka terus! Kamu punya ${s.coins} koin. Aku suka lihat kamu belanja. 🛍️`);
