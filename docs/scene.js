@@ -7,6 +7,7 @@ const PALETTES = {
   leafy: { body: '#a6e6a1', light: '#e3f9df', dark: '#62c46b', accent: '#3fae56' },
   babi: { body: '#ffc2c4', light: '#ffe9e6', dark: '#f08c92', accent: '#e86a74' },
   trenggiling: { body: '#cfa97f', light: '#eddcc4', dark: '#8a6540', accent: '#6b4a2b' },
+  pika: { body: '#ffd83b', light: '#fff4a8', dark: '#9a6a2a', accent: '#e8453c' },
 };
 
 // Posisi wahana berasal dari layout.mjs (diuji agar tidak tumpang tindih). Kunci harus cocok dengan PLAYGROUND di server.
@@ -72,6 +73,7 @@ const SHINY = {
   leafy: { body: '#8fe8e0', light: '#dcfbf7', dark: '#4fc9bf', accent: '#2fa89f' },
   babi: { body: '#fff0b3', light: '#fffbe3', dark: '#f0c14b', accent: '#d9a21f' },
   trenggiling: { body: '#9fb7e8', light: '#dbe5fa', dark: '#6f86bf', accent: '#4a60a0' },
+  pika: { body: '#ffb35c', light: '#ffe0b8', dark: '#8a4a2a', accent: '#d9302c' },
 };
 function hexToHsl(hex) {
   const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -1843,6 +1845,7 @@ export class Scene {
     c.scale(sx * (1 + this.curl * 0.25), sy * (1 - this.curl * 0.45));
     const tint = p.sick ? '#b9d98a' : pal.body;
 
+    if (p.species === 'pika') { this._pika(c, p, pal, tint, mood); c.restore(); return; }
     // telinga / aksesori belakang
     c.fillStyle = tint;
     if (p.species === 'mochi') {
@@ -1921,6 +1924,69 @@ export class Scene {
     this._wear(c, p);
     this._elder(c, p);
     c.restore();
+  }
+
+  /** Tikus Petir: kuning, telinga panjang berujung hitam, pipi merah, ekor petir — kepala, badan, tangan & kaki terpisah (tidak bulat). */
+  _pika(c, p, pal, tint, mood) {
+    const sick = p.sick, dark = sick ? '#9dc070' : pal.dark, ink = '#2b2440';
+    const edge = sick ? '#7a9a50' : 'rgba(150,100,20,.55)';
+    const wag = Math.sin(this.t * 2.2) * 0.05;
+    const wave = this.activity || this.walking ? Math.sin(this.t * 9) * 0.35 : Math.sin(this.t * 1.7) * 0.08;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    // ekor petir (di belakang)
+    c.save(); c.translate(24, -10); c.rotate(wag);
+    c.fillStyle = tint; c.strokeStyle = edge; c.lineWidth = 2;
+    c.beginPath();
+    for (const [x, y] of [[0, 0], [14, -10], [9, -16], [28, -30], [22, -36], [44, -52], [40, -78], [72, -92], [62, -58], [52, -60], [58, -38], [40, -34], [36, -20], [24, -12], [14, 2]]) c.lineTo(x, y);
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = dark; c.beginPath();
+    for (const [x, y] of [[0, 0], [14, -10], [9, -16], [16, -22], [24, -12], [14, 2]]) c.lineTo(x, y);
+    c.closePath(); c.fill();
+    c.restore();
+    // telinga panjang berujung hitam
+    for (const d of [-1, 1]) {
+      c.save(); c.translate(0, -60); c.rotate(d * (0.04 + Math.sin(this.t * 1.5 + d) * 0.015)); c.translate(0, 60);
+      c.fillStyle = tint; c.strokeStyle = edge; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(d * 10, -76); c.lineTo(d * 31, -80); c.lineTo(d * 50, -128); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = ink; c.beginPath(); c.moveTo(d * 41.5, -107.6); c.lineTo(d * 50, -128); c.lineTo(d * 33.5, -106.5); c.closePath(); c.fill();
+      c.restore();
+    }
+    // kaki
+    for (const d of [-1, 1]) {
+      c.fillStyle = tint; c.strokeStyle = edge; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(d * 17, -4, 13, 8, d * -0.12, 0, 7); c.fill(); c.stroke();
+      c.fillStyle = dark; for (const k of [-1, 0, 1]) { c.beginPath(); c.arc(d * 17 + k * 5 + d * 2, -2, 1.6, 0, 7); c.fill(); }
+    }
+    // badan (buah pir kecil) + perut + garis punggung
+    const bg = c.createLinearGradient(0, -48, 0, 0);
+    bg.addColorStop(0, tint); bg.addColorStop(1, sick ? '#c9e69a' : pal.light);
+    c.fillStyle = bg; c.strokeStyle = edge; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(0, -24, 29, 23, 0, 0, 7); c.fill(); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.ellipse(0, -18, 16, 13, 0, 0, 7); c.fill();
+    c.fillStyle = dark; for (const y of [-34, -26]) { c.beginPath(); c.roundRect(-27, y, 7, 4, 2); c.roundRect(20, y + 2, 7, 4, 2); c.fill(); }
+    // tangan
+    for (const d of [-1, 1]) {
+      c.save(); c.translate(d * 30, -34); c.rotate(d * (0.55 + (d > 0 ? -wave : wave)));
+      c.fillStyle = tint; c.strokeStyle = edge; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(0, 9, 7.5, 13, 0, 0, 7); c.fill(); c.stroke();
+      c.fillStyle = bgHand(tint); c.beginPath(); c.arc(0, 20, 5.5, 0, 7); c.fill(); c.stroke();
+      c.restore();
+    }
+    // kepala lebar
+    const hg = c.createRadialGradient(-12, -66, 6, 0, -54, 48);
+    hg.addColorStop(0, sick ? '#d8efb0' : pal.light); hg.addColorStop(1, tint);
+    c.fillStyle = hg; c.strokeStyle = edge; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(0, -54, 43, 33, 0, 0, 7); c.fill(); c.stroke();
+    // pipi merah + hidung
+    c.fillStyle = sick ? '#9aa86a' : pal.accent;
+    for (const d of [-1, 1]) { c.beginPath(); c.arc(d * 30, -38, 8, 0, 7); c.fill(); }
+    c.fillStyle = 'rgba(255,255,255,.55)'; for (const d of [-1, 1]) { c.beginPath(); c.arc(d * 28, -41, 2.2, 0, 7); c.fill(); }
+    c.fillStyle = ink; c.beginPath(); c.ellipse(0, -43, 2.4, 1.7, 0, 0, 7); c.fill();
+    this._face(c, p, mood, pal, true);
+    this._wear(c, p);
+    this._elder(c, p);
+
+    function bgHand(col) { return col; }
   }
 
   /** Trenggiling menggulung: bola bersisik yang berputar. */
@@ -2067,7 +2133,7 @@ export class Scene {
     c.restore();
   }
 
-  _face(c, p, mood, pal) {
+  _face(c, p, mood, pal, noBlush = false) {
     if (mood === 'thirsty') mood = 'hungry'; // ekspresi serupa (mulut terbuka)
     const arrived = this.activity?.arrived;
     if (this.bathing || arrived) mood = 'happy';
@@ -2079,8 +2145,10 @@ export class Scene {
     const yawning = ia?.kind === 'yawn';
     const blinking = this.blink > 0 || yawning;
 
-    c.fillStyle = 'rgba(255,120,150,.4)';
-    for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * 30, -34, 8, 5, 0, 0, 7); c.fill(); }
+    if (!noBlush) {
+      c.fillStyle = 'rgba(255,120,150,.4)';
+      for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * 30, -34, 8, 5, 0, 0, 7); c.fill(); }
+    }
 
     c.strokeStyle = '#2b2440'; c.fillStyle = '#2b2440'; c.lineWidth = 3.4; c.lineCap = 'round';
     for (const d of [-1, 1]) {

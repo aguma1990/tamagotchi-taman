@@ -6,10 +6,10 @@ const CH = 960;
 const SCENE_W = 900;
 const SCENE_H = 520;
 
-const SPECIES = { mochi: 'Mochi', bubu: 'Bubu', leafy: 'Leafy', babi: 'Babi', trenggiling: 'Trenggiling' };
+const SPECIES = { mochi: 'Mochi', bubu: 'Bubu', leafy: 'Leafy', babi: 'Babi', trenggiling: 'Trenggiling', pika: 'Tikus Petir' };
 const STAGE = { egg: 'Telur', baby: 'Bayi', child: 'Anak', teen: 'Remaja', adult: 'Dewasa', elder: 'Lansia' };
-const GLOW = { mochi: '#ff9ec0', bubu: '#8cbcff', leafy: '#8fe39a', babi: '#ffb0b6', trenggiling: '#d9b58a' };
-const GLOW_SHINY = { mochi: '#ffc78a', bubu: '#c9a8ff', leafy: '#8fe8e0', babi: '#fff0b3', trenggiling: '#9fb7e8' };
+const GLOW = { mochi: '#ff9ec0', bubu: '#8cbcff', leafy: '#8fe39a', babi: '#ffb0b6', trenggiling: '#d9b58a', pika: '#ffe066' };
+const GLOW_SHINY = { mochi: '#ffc78a', bubu: '#c9a8ff', leafy: '#8fe8e0', babi: '#fff0b3', trenggiling: '#9fb7e8', pika: '#ffb35c' };
 
 function pill(c, text, x, y, color) {
   c.font = '600 24px system-ui, sans-serif';

@@ -241,7 +241,7 @@ const norm = (t) =>
 /** Cocokkan kata/frasa utuh (bukan potongan di tengah kata). */
 const has = (t, ...words) => words.some((w) => new RegExp(`(^| )${w}( |$)`).test(t));
 
-const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~' };
+const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~', pika: ' Zzt!' };
 
 const JOKES = [
   'Kenapa komputer nggak pernah lapar? Karena selalu ada byte-nya! 😄',
@@ -256,7 +256,7 @@ const STORIES = [
   'Ada awan yang iri pada matahari. Tapi tanpa awan nggak ada hujan, tanpa hujan nggak ada bunga. 🌼',
   'Si kecil menanam biji dan menyiramnya sabar tiap hari. Kini jadi pohon tempat semua teman berteduh. 🌳',
 ];
-const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎', babi: 'burger, nyam nyam nyam! 🍔', trenggiling: 'air putih dingin, segar banget 💧' };
+const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎', babi: 'burger, nyam nyam nyam! 🍔', trenggiling: 'air putih dingin, segar banget 💧', pika: 'apel merah yang manis, bikin listriknya penuh ⚡🍎' };
 
 function moodOf(s) {
   if (s.sleeping) return 'sleep';
@@ -510,7 +510,7 @@ const CONFIG = Object.freeze({
   asleep: Object.freeze({ hunger: 2, happiness: 0.8, energy: -200, hygiene: 0.8, thirst: 2 }), // tidur: kosong → penuh ±15 menit nyata
 });
 
-const SPECIES = Object.freeze(['mochi', 'bubu', 'leafy', 'babi', 'trenggiling']);
+const SPECIES = Object.freeze(['mochi', 'bubu', 'leafy', 'babi', 'trenggiling', 'pika']);
 
 const FOODS = Object.freeze({
   air: { label: 'Air Putih', emoji: '💧', kind: 'drink', cost: 0, hunger: 0, happiness: 1, health: 1, energy: 0, thirst: 42 },

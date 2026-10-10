@@ -11,10 +11,10 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const STAGE = { egg: 'Telur', baby: 'Bayi', child: 'Anak', teen: 'Remaja', adult: 'Dewasa', elder: 'Lansia' };
-const SPECIES = { mochi: 'Mochi', bubu: 'Bubu', leafy: 'Leafy', babi: 'Babi', trenggiling: 'Trenggiling' };
-const SAY_FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~' };
-const AVATAR = { mochi: '🐱', bubu: '🐻', leafy: '🌱', babi: '🐷', trenggiling: '🌰' };
-const AVATAR_BG = { mochi: '#ffb3c7', bubu: '#9cc8ff', leafy: '#a6e6a1', babi: '#ffc2c4', trenggiling: '#cfa97f' };
+const SPECIES = { mochi: 'Mochi', bubu: 'Bubu', leafy: 'Leafy', babi: 'Babi', trenggiling: 'Trenggiling', pika: 'Tikus Petir' };
+const SAY_FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~', pika: ' Zzt!' };
+const AVATAR = { mochi: '🐱', bubu: '🐻', leafy: '🌱', babi: '🐷', trenggiling: '🌰', pika: '⚡' };
+const AVATAR_BG = { mochi: '#ffb3c7', bubu: '#9cc8ff', leafy: '#a6e6a1', babi: '#ffc2c4', trenggiling: '#cfa97f', pika: '#ffd83b' };
 const EFFECT_ICON = { hunger: '🍖', thirst: '💧', happiness: '😊', energy: '⚡', hygiene: '🫧', health: '❤️', coins: '🪙', xp: '✨' };
 const STAT_COLORS = { hunger: '#ffb86b', thirst: '#4d8dff', happiness: '#ff7aa8', energy: '#ffd166', hygiene: '#7fd6ff', health: '#6ee7a8' };
 const STAT_LABEL = { hunger: 'Kenyang', thirst: 'Haus', happiness: 'Senang', energy: 'Energi', hygiene: 'Bersih', health: 'Sehat' };

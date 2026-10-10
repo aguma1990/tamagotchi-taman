@@ -127,7 +127,7 @@ test('web: uji acak — banyak aksi sampah, ekspor/impor, buka-ulang tidak merus
   const junk = [null, undefined, 5, '__proto__', {}, [], 'x'.repeat(300), 'air', 'swing', 'lari', 'sakura'];
   for (let run = 0; run < 8; run++) {
     let g = await fresh(fakeStorage(), T0 + run * 1000);
-    await g.api('/api/create', { name: `W${run}`, species: ['mochi', 'bubu', 'leafy', 'babi', 'trenggiling'][run % 5] });
+    await g.api('/api/create', { name: `W${run}`, species: ['mochi', 'bubu', 'leafy', 'babi', 'trenggiling', 'pika'][run % 6] });
     for (let i = 0; i < 120; i++) {
       g.advance(Math.floor(r() * (r() < 0.2 ? 5 * HOUR : 2 * MIN)));
       const a = r() < 0.1 ? junk[Math.floor(r() * junk.length)] : { type: types[Math.floor(r() * types.length)], food: junk[Math.floor(r() * junk.length)], item: junk[Math.floor(r() * junk.length)], skill: 'lari', theme: 'sakura', game: 'memory', score: Math.floor(r() * 80), text: 'halo', name: 'Z', species: 'bubu', id: 'feed' };

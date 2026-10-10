@@ -31,7 +31,7 @@ const CONFIG = Object.freeze({
   asleep: Object.freeze({ hunger: 2, happiness: 0.8, energy: -200, hygiene: 0.8, thirst: 2 }), // tidur: kosong → penuh ±15 menit nyata
 });
 
-const SPECIES = Object.freeze(['mochi', 'bubu', 'leafy', 'babi', 'trenggiling']);
+const SPECIES = Object.freeze(['mochi', 'bubu', 'leafy', 'babi', 'trenggiling', 'pika']);
 
 const FOODS = Object.freeze({
   air: { label: 'Air Putih', emoji: '💧', kind: 'drink', cost: 0, hunger: 0, happiness: 1, health: 1, energy: 0, thirst: 42 },

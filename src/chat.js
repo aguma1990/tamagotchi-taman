@@ -10,7 +10,7 @@ const norm = (t) =>
 /** Cocokkan kata/frasa utuh (bukan potongan di tengah kata). */
 const has = (t, ...words) => words.some((w) => new RegExp(`(^| )${w}( |$)`).test(t));
 
-const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~' };
+const FLAVOR = { mochi: ' Nyaa~', bubu: ' Hehe.', leafy: ' 🌱', babi: ' Oink!', trenggiling: ' Krk~', pika: ' Zzt!' };
 
 const JOKES = [
   'Kenapa komputer nggak pernah lapar? Karena selalu ada byte-nya! 😄',
@@ -25,7 +25,7 @@ const STORIES = [
   'Ada awan yang iri pada matahari. Tapi tanpa awan nggak ada hujan, tanpa hujan nggak ada bunga. 🌼',
   'Si kecil menanam biji dan menyiramnya sabar tiap hari. Kini jadi pohon tempat semua teman berteduh. 🌳',
 ];
-const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎', babi: 'burger, nyam nyam nyam! 🍔', trenggiling: 'air putih dingin, segar banget 💧' };
+const FAVORITE = { mochi: 'kue, apalagi yang manis banget 🍰', bubu: 'susu segar, glek glek glek 🥛', leafy: 'apel yang renyah 🍎', babi: 'burger, nyam nyam nyam! 🍔', trenggiling: 'air putih dingin, segar banget 💧', pika: 'apel merah yang manis, bikin listriknya penuh ⚡🍎' };
 
 function moodOf(s) {
   if (s.sleeping) return 'sleep';

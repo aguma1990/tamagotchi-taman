@@ -71,7 +71,7 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 
 ## Fitur utama
 
-- **5 jenis peliharaan** (Mochi, Bubu, Leafy, Babi, Trenggiling — yang bisa menggulung & berputar) dengan **warna langka ✨ (8%)**.
+- **6 jenis peliharaan** (Mochi, Bubu, Leafy, Babi, Trenggiling — yang bisa menggulung & berputar — dan Tikus Petir ⚡ berkaki-tangan dengan telinga panjang & ekor petir) dengan **warna langka ✨ (8%)**.
 - **Siklus hidup:** Telur → Bayi → Anak → Remaja (terbentuk *watak*) → Dewasa → **Lansia** → **pensiun** ke Galeri Keluarga dan mewariskan
   **telur generasi berikutnya** (mewarisi setengah keterampilan; data akun seperti koin, aksesori, album tetap).
 - **Kebutuhan:** kenyang, haus, senang, energi, bersih, sehat. Peliharaan bicara sendiri saat lapar/haus/ngantuk. Punya **makanan favorit & tidak suka**.
@@ -117,7 +117,7 @@ Ngobrol memberi +3 senang & XP (maks. sekali per 30 detik, anti-spam) dan menghi
 
 ## Karakter & kebutuhan
 
-Lima jenis peliharaan: **Mochi** (kucing), **Bubu** (beruang), **Leafy** (tunas), **Babi** 🐷, dan **Trenggiling** 🌰 —
+Enam jenis peliharaan (plus **Tikus Petir** ⚡): **Mochi** (kucing), **Bubu** (beruang), **Leafy** (tunas), **Babi** 🐷, dan **Trenggiling** 🌰 —
 trenggiling bisa **menggulung jadi bola**: ia berguling saat berpindah tempat, main bola, dan berputar di tempat saat diketuk/dipeluk.
 
 Status: kenyang, **haus** 💧, senang, energi, bersih, sehat. Saat lapar, haus, atau ngantuk peliharaan **bicara sendiri**

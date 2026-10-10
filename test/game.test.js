@@ -451,7 +451,7 @@ test('obrolan: pertanyaan soal haus dibalas sesuai kondisi', () => {
 });
 
 test('spesies babi & trenggiling bisa dibuat dan berbicara', () => {
-  for (const sp of ['babi', 'trenggiling']) {
+  for (const sp of ['babi', 'trenggiling', 'pika']) {
     const r = engine.createPet({ name: 'X', species: sp }, T0, `id-${sp}`, 3);
     assert.ok(r.ok, sp);
     const s = r.state;
